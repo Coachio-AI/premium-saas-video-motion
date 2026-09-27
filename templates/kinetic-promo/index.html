@@ -1,0 +1,182 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Kinetic Promo — VideoPremium template</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Geist:wght@300..800&display=block" rel="stylesheet">
+<script src="../../engine/motion.js"></script>
+<!--
+  KINETIC PROMO — Apple-style keynote promo driven by one JSON spec.
+  Edit ONLY the <script id="spec"> block below. Shot types:
+    words   {text, accent:"word", size}                 word-by-word masked rise
+    glow    {kicker, big, sub, colors:[a,b]}            glowing color field + counting number
+    device  {caption, screen:[a,b], label}              phone mockup hero, spring-in + slow push
+    image   {src, caption, fit}                         product/photo hero
+    ui      {title, rows:[[label,value],...]}           floating settings card, toggle flips on beat
+    counter {to, prefix, suffix, label}                 odometer digits
+    grid    {tiles:[color|img,...], cols}               bento pop → push into centre tile
+    split   {pre, text}                                 two-beat line swap ("It's a" → "work of heart.")
+    logo    {text, tagline}                             wordmark lands on the wdth axis
+  Common: beats (length), bg, fg, in: push | rise | zoom | iris | none
+-->
+<script id="spec" type="application/json">
+{
+  "size": [1920, 1080],
+  "bpm": 113.336,
+  "theme": { "bg": "#000000", "fg": "#F5F5F7", "light": "#F5F5F7", "dark": "#0B0B0C", "accent": ["#FF7A45", "#FFB547"], "muted": "#86868B" },
+  "shots": [
+    { "type": "words", "text": "Meet Lumen.", "beats": 3, "size": 190, "in": "none" },
+    { "type": "words", "text": "Notes that think with you.", "accent": "think", "beats": 4, "size": 150, "in": "rise" },
+    { "type": "device", "caption": "Your ideas. Beautifully kept.", "screen": ["#FF7A45", "#6B3BFF"], "label": "9:41", "beats": 5, "bg": "#F5F5F7", "fg": "#1D1D1F", "in": "zoom" },
+    { "type": "glow", "kicker": "UP TO", "big": "10×", "sub": "faster capture", "colors": ["#FF5A1F", "#FFB547"], "beats": 4, "in": "push" },
+    { "type": "ui", "title": "Smart capture", "rows": [["Auto-summaries", "On"], ["Voice to text", "On"], ["Link previews", "On"]], "beats": 5, "bg": "#F5F5F7", "fg": "#1D1D1F", "in": "rise" },
+    { "type": "counter", "to": 1000000, "suffix": "+", "label": "notes written this week", "beats": 4, "in": "push" },
+    { "type": "grid", "tiles": ["#FF7A45", "#1D1D1F", "#FFB547", "#6B3BFF", "#F5F5F7", "#2BD17E", "#FF3B6B", "#3BA8FF", "#FFD60A"], "cols": 3, "beats": 4, "bg": "#F5F5F7", "in": "iris" },
+    { "type": "split", "pre": "It's not an app.", "text": "It's a habit.", "beats": 5, "in": "rise" },
+    { "type": "logo", "text": "LUMEN", "tagline": "Available today.", "beats": 6, "in": "zoom" }
+  ]
+}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow:hidden;background:#000}
+#stage{position:relative;overflow:hidden;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.shot{position:absolute;left:0;top:0;overflow:hidden;will-change:transform}
+.fill{position:absolute;inset:0}
+.center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
+.mask{display:inline-block;overflow:hidden;vertical-align:bottom;padding:0 .02em .08em}
+.mask>span{display:inline-block;will-change:transform}
+.disp{font-family:Archivo;font-weight:750;letter-spacing:-.035em;line-height:1.02}
+.grad{background-clip:text;-webkit-background-clip:text;color:transparent}
+.roll{overflow:hidden;position:relative}
+.roll>div{will-change:transform}
+</style></head><body>
+<div id="stage"></div>
+<script>
+const SPEC = JSON.parse(document.getElementById('spec').textContent);
+const [W, H] = SPEC.size, T = SPEC.theme, U = Math.min(W, H) / 1080;      // U = layout unit (1 at 1080p)
+const B = VP.clock(SPEC.bpm);
+const stage = document.getElementById('stage'); stage.style.width = W + 'px'; stage.style.height = H + 'px';
+const { sp, ramp, clamp, lerp, ease, eOut, SPR } = VP;
+const TR = 1.0;                                  // transition length in beats (spring handles the feel)
+SPEC.shots.forEach((s, i, all) => { if (s.type === 'grid' && all[i + 1]) { const n = all[i + 1]; s.tiles = s.tiles.slice(); s.tiles[Math.floor(s.tiles.length / 2)] = n.bg || SPEC.theme.bg; n.in = 'none'; } });
+let at = 0; SPEC.shots.forEach((s, i) => { s.i = i; s.start = at; at += s.beats; s.bg = s.bg || T.bg; s.fg = s.fg || T.fg; if (!s.in) s.in = i ? ['rise', 'push', 'zoom'][i % 3] : 'none'; });
+const TOTAL = at, DUR = TOTAL * B;
+const grad = c => `linear-gradient(100deg,${(c || T.accent).join(',')})`;
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const wordsHTML = (text, accent, cls = '') => text.split(' ').map(w => `<span class="mask"><span class="${cls} ${accent && w.replace(/[.,!?]/g, '') === accent ? 'grad acc' : ''}">${esc(w)}</span></span>`).join(' ');
+
+/* ---------------- build DOM once ---------------- */
+SPEC.shots.forEach(s => {
+  const el = document.createElement('div'); el.className = 'shot'; el.style.cssText += `width:${W}px;height:${H}px;background:${s.bg};color:${s.fg};z-index:${s.i + 1}`;
+  s.el = el; stage.appendChild(el);
+  const px = v => (v * U).toFixed(1) + 'px';
+  switch (s.type) {
+    case 'words': el.innerHTML = `<div class="center"><div class="disp" style="font-size:${px(s.size || 150)};max-width:${W * .82}px">${wordsHTML(s.text, s.accent)}</div></div>`; break;
+    case 'split': el.innerHTML = `<div class="center"><div class="disp roll" style="font-size:${px(s.size || 130)};height:${px((s.size || 130) * 1.2)};width:${W}px"><div class="pre" style="position:absolute;left:0;right:0">${esc(s.pre)}</div><div class="txt" style="position:absolute;left:0;right:0">${wordsHTML(s.text, s.accent)}</div></div></div>`; break;
+    case 'glow': el.innerHTML = `<div class="fill blob b1" style="background:radial-gradient(closest-side,${s.colors[0]} 0%,${s.colors[0]} 35%,${s.colors[0]}00 100%)"></div><div class="fill blob b2" style="background:radial-gradient(closest-side,${s.colors[1]} 0%,${s.colors[1]}cc 40%,${s.colors[1]}00 100%)"></div>
+      <div class="center"><div class="roll k" style="font-size:${px(46)};font-weight:650;letter-spacing:.08em;height:${px(60)}"><div>${esc(s.kicker || '')}</div></div>
+      <div class="disp big" style="font-size:${px(360)};font-variation-settings:'wdth' 100;line-height:.95"></div>
+      <div class="roll sb" style="font-size:${px(56)};font-weight:600;height:${px(76)}"><div>${esc(s.sub || '')}</div></div></div>`; break;
+    case 'device': el.innerHTML = `<div class="roll cap" style="position:absolute;left:0;right:0;top:${px(70)};text-align:center;font-size:${px(78)};font-weight:650;letter-spacing:-.02em;height:${px(100)}"><div>${esc(s.caption || '')}</div></div>
+      <div class="dev" style="position:absolute;width:${px(330)};height:${px(680)};border-radius:${px(62)};background:#111;padding:${px(12)};box-shadow:0 ${px(40)} ${px(80)} rgba(0,0,0,.25)">
+        <div style="position:relative;width:100%;height:100%;border-radius:${px(50)};overflow:hidden;background:linear-gradient(160deg,${s.screen[0]},${s.screen[1]})">
+          <div style="position:absolute;left:50%;top:${px(14)};transform:translateX(-50%);width:${px(96)};height:${px(28)};border-radius:${px(14)};background:#000"></div>
+          <div style="position:absolute;left:0;right:0;top:${px(92)};text-align:center;color:#fff;font-size:${px(88)};font-weight:600;letter-spacing:-.02em">${esc(s.label || '')}</div>
+          <div class="notes"></div></div></div>`;
+      { const n = el.querySelector('.notes'); for (let k = 0; k < 3; k++) n.insertAdjacentHTML('beforeend', `<div class="note" style="position:absolute;left:${px(18)};right:${px(18)};top:${px(260 + k * 118)};height:${px(100)};border-radius:${px(24)};background:rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.5)"><div style="position:absolute;left:${px(18)};top:${px(22)};width:${px(150 - k * 30)};height:${px(14)};border-radius:${px(7)};background:rgba(255,255,255,.9)"></div><div style="position:absolute;left:${px(18)};top:${px(52)};width:${px(210)};height:${px(10)};border-radius:${px(5)};background:rgba(255,255,255,.55)"></div></div>`); }
+      break;
+    case 'image': el.innerHTML = `<div class="roll cap" style="position:absolute;left:0;right:0;top:${px(90)};text-align:center;font-size:${px(60)};font-weight:650;height:${px(80)}"><div>${esc(s.caption || '')}</div></div><img class="img" src="${s.src}" style="position:absolute;object-fit:${s.fit || 'contain'}">`; break;
+    case 'ui': el.innerHTML = `<div class="card" style="position:absolute;width:${px(980)};border-radius:${px(44)};background:#fff;box-shadow:0 ${px(30)} ${px(80)} rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);padding:${px(40)} ${px(44)}">
+        <div style="font-size:${px(58)};font-weight:700;letter-spacing:-.02em;margin-bottom:${px(24)}">${esc(s.title)}</div>
+        ${s.rows.map(r => `<div class="row" style="position:relative;display:flex;align-items:center;justify-content:space-between;height:${px(118)};border-top:1px solid #eee;font-size:${px(42)};font-weight:500"><span>${esc(r[0])}</span><i class="tg" style="position:relative;width:${px(84)};height:${px(50)};border-radius:${px(25)};background:#e5e5ea"><b style="position:absolute;top:${px(4)};left:${px(4)};width:${px(42)};height:${px(42)};border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)"></b></i></div>`).join('')}</div>`; break;
+    case 'counter': { const str = (s.prefix || '') + Number(s.to).toLocaleString('en-US') + (s.suffix || '');
+      el.innerHTML = `<div class="center"><div class="odo disp" style="display:flex;font-size:${px(280)};line-height:1;height:${px(290)};font-variant-numeric:tabular-nums">${[...str].map(ch => /\d/.test(ch) ? `<span class="col" data-d="${ch}" style="display:inline-block;overflow:hidden;height:${px(290)}"><span style="display:block">${[...'01234567890123456789'].map(d => `<span style="display:block;height:${px(290)}">${d}</span>`).join('')}</span></span>` : `<span class="sym" style="display:inline-block">${esc(ch)}</span>`).join('')}</div>
+        <div class="roll lb" style="font-size:${px(56)};font-weight:600;color:${T.muted};height:${px(76)};margin-top:${px(24)}"><div>${esc(s.label || '')}</div></div></div>`; break; }
+    case 'grid': { const n = s.tiles.length, c = s.cols || 3; el.innerHTML = s.tiles.map((t, k) => `<div class="tile" style="position:absolute;overflow:hidden;background:${/^#|rgb/.test(t) ? t : '#222'}">${/^#|rgb/.test(t) ? '' : `<img src="${t}" style="width:100%;height:100%;object-fit:cover">`}</div>`).join(''); break; }
+    case 'logo': el.innerHTML = `<div class="center"><div class="disp wm" style="font-size:${px(s.size || 260)};font-weight:850;letter-spacing:-.02em">${esc(s.text)}</div><div class="roll tl" style="font-size:${px(54)};font-weight:550;color:${T.muted};height:${px(74)};margin-top:${px(28)}"><div>${esc(s.tagline || '')}</div></div></div>`; break;
+  }
+  el.querySelectorAll('.acc').forEach(a => a.style.backgroundImage = grad(s.accentColors));
+});
+
+/* ---------------- per-shot animation (lb = beats since shot start) ---------------- */
+const rollEl = (el, k) => { if (!el) return; VP.roll(el.firstElementChild, k, el.offsetHeight); };
+const ANIM = {
+  words(s, lb) { const ws = s.el.querySelectorAll('.mask>span'), step = s.step || Math.min(.5, (s.beats - 1.2) / ws.length);
+    ws.forEach((w, k) => { const k0 = s.start + .15 + k * step, v = sp(k0, ...SPR.POP); w.style.transform = `translateY(${((1 - v) * 105).toFixed(2)}%)`; }); },
+  split(s, lb) { const pre = s.el.querySelector('.pre'), txt = s.el.querySelector('.txt'), sw = s.start + Math.max(1.5, s.beats * .42);
+    const a = sp(s.start + .1, ...SPR.POP), o = sp(sw, ...SPR.SNAP); const h = pre.parentElement.offsetHeight;
+    pre.style.transform = `translateY(${((1 - a) * h - o * h).toFixed(2)}px)`;
+    txt.querySelectorAll('.mask>span').forEach((w, k) => { const v = sp(sw + .08 + k * .25, ...SPR.POP); w.style.transform = `translateY(${((1 - v) * 105).toFixed(2)}%)`; }); },
+  glow(s, lb) { const b1 = s.el.querySelector('.b1'), b2 = s.el.querySelector('.b2'), g = sp(s.start, ...SPR.HEAVY), t = VP.bt * B;
+    const R = Math.max(W, H) * .75 * g; b1.style.cssText += `;left:${W * .38 - R + Math.sin(t * .9) * 40 * U}px;top:${H * .5 - R}px;width:${2 * R}px;height:${2 * R}px`;
+    const R2 = R * .8; b2.style.cssText += `;left:${W * .62 - R2}px;top:${H * .45 - R2 + Math.cos(t * .8) * 40 * U}px;width:${2 * R2}px;height:${2 * R2}px`;
+    const m = String(s.big).match(/^([^\d]*)(\d+(?:\.\d+)?)(.*)$/); const big = s.el.querySelector('.big');
+    if (m) { const v = +m[2] * VP.eOutQuint(ramp(s.start + .3, s.start + 2.2, x => x)); big.textContent = m[1] + (m[2].includes('.') ? v.toFixed(1) : Math.round(v)) + m[3]; } else big.textContent = s.big;
+    big.style.transform = `scale(${lerp(.86, 1, sp(s.start + .2, ...SPR.POP))})`; big.style.fontVariationSettings = `'wdth' ${lerp(125, 100, sp(s.start + .2, 1.6, .7))}`;
+    rollEl(s.el.querySelector('.k'), sp(s.start + .1, ...SPR.SNAP)); rollEl(s.el.querySelector('.sb'), sp(s.start + 1.2, ...SPR.SNAP)); },
+  device(s, lb) { const d = s.el.querySelector('.dev'), k = sp(s.start + .1, ...SPR.HEAVY), push = 1 + .05 * ramp(s.start, s.start + s.beats + 1, x => x);
+    const w = 354 * U, h = 704 * U, cy = H * .56 + (1 - k) * H * .5; d.style.left = (W / 2 - w / 2) + 'px'; d.style.top = (cy - h / 2) + 'px'; d.style.transform = `scale(${lerp(.9, 1, k) * push})`;
+    s.el.querySelectorAll('.note').forEach((n, i) => { const v = sp(s.start + 1 + i * .5, ...SPR.POP); n.style.transform = `translateY(${(1 - v) * 60 * U}px) scale(${lerp(.9, 1, v)})`; n.style.visibility = v > .001 ? 'visible' : 'hidden'; });
+    rollEl(s.el.querySelector('.cap'), sp(s.start + .5, ...SPR.SNAP)); },
+  image(s, lb) { const im = s.el.querySelector('.img'), k = sp(s.start + .1, ...SPR.HEAVY), push = 1 + .05 * ramp(s.start, s.start + s.beats + 1, x => x);
+    const w = W * .7, h = H * .66; im.style.left = (W / 2 - w / 2) + 'px'; im.style.top = (H * .58 - h / 2 + (1 - k) * H * .4) + 'px'; im.style.width = w + 'px'; im.style.height = h + 'px'; im.style.transform = `scale(${lerp(.9, 1, k) * push})`;
+    rollEl(s.el.querySelector('.cap'), sp(s.start + .5, ...SPR.SNAP)); },
+  ui(s, lb) { const c = s.el.querySelector('.card'), k = sp(s.start + .1, ...SPR.POP); const cw = 980 * U, ch = c.offsetHeight;
+    c.style.left = (W / 2 - cw / 2) + 'px'; c.style.top = (H / 2 - ch / 2 + (1 - k) * 120 * U) + 'px'; c.style.transform = `scale(${lerp(.92, 1, k)})`;
+    s.el.querySelectorAll('.row').forEach((r, i) => { const on = sp(s.start + 1.2 + i * .6, ...SPR.POP), tg = r.querySelector('.tg'), kn = tg.firstElementChild;
+      tg.style.background = `rgb(${VP.mix([229, 229, 234], [52, 199, 89], clamp(on)).join(',')})`; kn.style.transform = `translateX(${on * 34 * U}px)`; }); },
+  counter(s, lb) { const cols = s.el.querySelectorAll('.col'), n = cols.length;
+    cols.forEach((c, i) => { const d = +c.dataset.d, e = VP.eOutQuint(ramp(s.start + .1 + (n - 1 - i) * .08, s.start + 2.4 + (n - 1 - i) * .1, x => x)); const pos = (10 + d) * e; c.firstElementChild.style.transform = `translateY(${-(pos * c.offsetHeight).toFixed(1)}px)`; });
+    const o = s.el.querySelector('.odo'); o.style.transform = `scale(${lerp(.9, 1, sp(s.start, ...SPR.POP))})`;
+    rollEl(s.el.querySelector('.lb'), sp(s.start + 1.6, ...SPR.SNAP)); },
+  grid(s, lb) { const tiles = s.el.querySelectorAll('.tile'), c = s.cols || 3, r = Math.ceil(tiles.length / c), g = 18 * U;
+    const th = (H - 2 * 70 * U - (r - 1) * g) / r, tw = th, x0 = W / 2 - (c * tw + (c - 1) * g) / 2, y0 = H / 2 - (r * th + (r - 1) * g) / 2;
+    const mid = Math.floor(tiles.length / 2), z = lerp(1, Math.max(W / tw, H / th) * 1.02, sp(s.start + s.beats - 1.6, 1.3, .9));
+    const mcx = x0 + (mid % c) * (tw + g) + tw / 2, mcy = y0 + Math.floor(mid / c) * (th + g) + th / 2;
+    tiles.forEach((t, i) => { const pop = sp(s.start + .1 + i * .18, ...SPR.POP); let rr = [x0 + (i % c) * (tw + g), y0 + Math.floor(i / c) * (th + g), tw, th, 26 * U];
+      rr = VP.zoomAbout(rr, mcx, mcy, z); rr[0] += (W / 2 - mcx) * clamp(z - 1); rr[1] += (H / 2 - mcy) * clamp(z - 1); rr = VP.scaleRect(rr, pop); VP.place(t, rr); }); },
+  logo(s, lb) { const wm = s.el.querySelector('.wm'), k = sp(s.start + .15, 1.5, .66);
+    wm.style.fontVariationSettings = `'wdth' ${lerp(125, 100, k)}`; wm.style.transform = `scale(${lerp(1.08, 1, k)})`;
+    rollEl(s.el.querySelector('.tl'), sp(s.start + 1.4, ...SPR.SNAP)); },
+};
+
+/* ---------------- transitions: next shot covers previous, driven by one spring ---------------- */
+function transform(s, b) {
+  const k = s.in === 'none' ? 1 : sp(s.start, 1.5, .86), nx = SPEC.shots[s.i + 1], kx = nx && nx.in !== 'none' ? sp(nx.start, 1.5, .86) : 0;
+  let tf = '', clip = '';
+  switch (s.in) { // entering
+    case 'push': tf += `translateX(${((1 - k) * W).toFixed(2)}px) `; break;
+    case 'rise': tf += `translateY(${((1 - k) * H).toFixed(2)}px) `; break;
+    case 'zoom': tf += `scale(${lerp(.72, 1, k).toFixed(4)}) `; clip = `inset(${((1 - k) * H / 2).toFixed(1)}px ${((1 - k) * W / 2).toFixed(1)}px round ${((1 - k) * 60 * U).toFixed(1)}px)`; break;
+    case 'iris': { const R = Math.hypot(W, H) / 2 * k; clip = `circle(${R.toFixed(1)}px at 50% 50%)`; break; }
+  }
+  if (nx) switch (nx.in) { // leaving (parallax under the incoming shot)
+    case 'push': tf += `translateX(${(-kx * W * .35).toFixed(2)}px) `; break;
+    case 'rise': tf += `translateY(${(-kx * H * .25).toFixed(2)}px) `; break;
+    case 'zoom': tf += `scale(${lerp(1, 1.18, kx).toFixed(4)}) `; break;
+    case 'iris': tf += `scale(${lerp(1, .94, kx).toFixed(4)}) `; break;
+  }
+  s.el.style.transform = tf; s.el.style.clipPath = clip;
+}
+
+function frame(t) {
+  const b = VP.at(t);
+  SPEC.shots.forEach(s => {
+    const on = b >= s.start - .02 && b < s.start + s.beats + TR * 1.6; // stay alive under the next shot while it settles
+    s.el.style.display = on ? 'block' : 'none'; if (!on) return;
+    transform(s, b); ANIM[s.type] && ANIM[s.type](s, b - s.start);
+  });
+}
+/* sound cues (consumed by tools/mix.py): keep them sparse — premium = restraint */
+function cues() {
+  const c = [];
+  SPEC.shots.forEach(s => {
+    if (s.i && s.in !== 'none') c.push({ beat: s.start, type: s.in === 'zoom' || s.in === 'iris' ? 'swoosh-deep' : 'swoosh', gain: -18 });
+    if (s.type === 'counter' || s.type === 'glow') c.push({ beat: s.start + 2.2, type: 'tick', gain: -20 });
+    if (s.type === 'ui') s.rows.forEach((r, i) => c.push({ beat: s.start + 1.2 + i * .6, type: 'click', gain: -22 }));
+    if (s.type === 'logo') c.push({ beat: s.start + .15, type: 'hit', gain: -14 });
+  });
+  return c;
+}
+VP.boot({ seek: frame, dur: DUR, cues, fonts: ['750 100px Archivo', '600 40px Geist'] });
+window.SIZE = [W, H]; window.BPM = SPEC.bpm; window.B = B;
+</script></body></html>

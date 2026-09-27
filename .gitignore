@@ -1,0 +1,10 @@
+node_modules/
+out/
+research/
+.render-*/
+templates/*/assets/*.jpg
+templates/*/assets/*.png
+!templates/*/assets/placeholder-*
+*.wav
+sfx.json
+examples/*.mp4

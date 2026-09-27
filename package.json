@@ -1,0 +1,14 @@
+{
+  "name": "videopremium-intro",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Premium motion/promo video from deterministic HTML — skill + engine + templates + fast renderer for coding agents",
+  "scripts": {
+    "sheet": "node tools/sheet.mjs",
+    "preview": "node tools/render.mjs --mode preview",
+    "render": "node tools/render.mjs --mode final",
+    "demo": "node tools/sheet.mjs templates/kinetic-promo/index.html && node tools/render.mjs templates/kinetic-promo/index.html --mode preview"
+  },
+  "dependencies": { "playwright": "^1.47.0" }
+}
