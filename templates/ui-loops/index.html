@@ -1,0 +1,198 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>UI Loops — VideoPremium template</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500;700&display=block" rel="stylesheet">
+<script src="../../engine/motion.js"></script>
+<!--
+  UI LOOPS — 8 product-UI micro-demos on one seamless loop (board 1080×1350, or one effect full-frame with ?fx=N).
+  Pattern (after Charlie Hills' "Opus 5.5 Motion Graphics" board, re-implemented from scratch on VP):
+    every element runs a cycle  before → fwd (2.2 s) → hold (4.4 s, something stays alive) → ret (1.4 s) = 8 s loop
+    every frame is SVG markup rebuilt from seek(t); text is measured with real font metrics so nothing overflows;
+    a mono "annotation layer" (small labels like `shape morph`, `wdth 62`, `illustrative`) gives the design-tool look.
+  Edit only CONFIG. Demo numbers are labelled "illustrative" — replace them with real figures before publishing.
+  URL flags: ?fx=1..8 single effect 1080×1080 · ?poster shows each tile at its most readable frame.
+-->
+<script>
+const CONFIG = {
+  title: ['Your product ', 'in motion', ''],           // [before, accent, after]
+  subtitle: '8 loops: interfaces, type and data.',
+  handle: 'yourbrand.com',
+  bg: '#ECEAE5', card: '#FAF9F6', stage: '#F2F0EB', paper: '#FFFFFF', ink: '#16181D', navy: '#00132F', dark: '#191B21',
+  accent: '#D97557', accent2: '#58B6FF', ice: '#8CCBEB', g1: '#E8E5DF', g2: '#D4D0C8', g3: '#A7A298', g4: '#6B6862',
+  font: "'Space Grotesk'", mono: "'JetBrains Mono'",
+  words: {
+    player: ['Preview', 'Spring launch', '0:42'], chart: ['Weekly reach', [40, 58, 49, 74, 63, 92], ['M', 'T', 'W', 'T', 'F', 'S']],
+    kpi: ['Signups', '12,480', '+18%'], dock: ['Photos', 'Player', 'Assets', 'Notes', 'Focus', 'Mail', 'Code'],
+    stretch: 'STRETCH', lens: ['Campaign report', [['Open rate', '48%'], ['Click rate', '6.2%'], ['Replies', '31'], ['Unsubscribes', '0.3%'], ['Revenue', '£4.2k']]],
+    flow: ['Brief', ['Email', 'Reel', 'Post'], 'Report'], mark: 'VP'
+  }
+};
+</script>
+<style>html,body{margin:0;background:#ECEAE5;overflow:hidden}#stage svg{display:block}</style></head><body>
+<div id="stage"></div>
+<script>
+(() => {
+const C = CONFIG, Wd = C.words, q = new URLSearchParams(location.search), FX = +q.get('fx') || 0, POSTER = q.has('poster');
+const W = 1080, H = FX ? 1080 : 1350; window.SIZE = [W, H];
+const { clamp, lerp, ease, eOut, cycle, stagger, rng, gauss, catmull, partial, dpath, quad, plane } = VP;
+const r2 = n => (Math.round(n * 100) / 100);
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const mix = (a, b, t) => '#' + VP.hex(a).map((v, i) => Math.round(lerp(v, VP.hex(b)[i], clamp(t))).toString(16).padStart(2, '0')).join('');
+const F = C.font, MO = C.mono;
+const tx = (x, y, s, o = {}) => `<text x="${r2(x)}" y="${r2(y)}" font-family="${o.mono ? MO : F}" font-size="${r2(o.s || 13)}" font-weight="${o.w || 700}" fill="${o.fill || C.ink}"${o.op !== undefined ? ` opacity="${r2(clamp(o.op))}"` : ''}${o.a ? ` text-anchor="${o.a}"` : ''}${o.ls ? ` letter-spacing="${o.ls}"` : ''}>${esc(s)}</text>`;
+const rect = (x, y, w, h, fill, o = {}) => `<rect x="${r2(x)}" y="${r2(y)}" width="${r2(Math.max(0, w))}" height="${r2(Math.max(0, h))}" rx="${r2(o.rx || 0)}" fill="${fill}"${o.op !== undefined ? ` opacity="${r2(clamp(o.op))}"` : ''}${o.stroke ? ` stroke="${o.stroke}" stroke-width="${o.sw || 1}"` : ''}${o.f ? ` filter="url(#${o.f})"` : ''}/>`;
+const circ = (x, y, r, fill, o = {}) => `<circle cx="${r2(x)}" cy="${r2(y)}" r="${r2(Math.max(0, r))}" fill="${fill}"${o.op !== undefined ? ` opacity="${r2(clamp(o.op))}"` : ''}${o.stroke ? ` stroke="${o.stroke}" stroke-width="${o.sw || 1}"` : ''}${o.f ? ` filter="url(#${o.f})"` : ''}/>`;
+const path = (d, o = {}) => `<path d="${d}" fill="${o.fill || 'none'}"${o.stroke ? ` stroke="${o.stroke}" stroke-width="${o.sw || 1.5}" stroke-linecap="round" stroke-linejoin="round"` : ''}${o.op !== undefined ? ` opacity="${r2(clamp(o.op))}"` : ''}${o.dash ? ` stroke-dasharray="${o.dash}"` : ''}${o.f ? ` filter="url(#${o.f})"` : ''}/>`;
+const note = (w, s, o = {}) => tx(w - 14, 28, s, { s: 12, mono: 1, w: 500, fill: o.fill || C.accent2, a: 'end', op: .9 });   // annotation layer
+const clip = (id, x, y, w, h, rx) => `<clipPath id="${id}"><rect x="${r2(x)}" y="${r2(y)}" width="${r2(Math.max(0, w))}" height="${r2(Math.max(0, h))}" rx="${r2(rx)}"/></clipPath>`;
+const art = (x, y, w, h, id) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${C.ice}"/><stop offset="1" stop-color="${mix(C.ice, C.paper, .6)}"/></linearGradient><radialGradient id="${id}b" cx=".38" cy=".35"><stop offset="0" stop-color="${mix(C.accent, '#ffffff', .35)}"/><stop offset="1" stop-color="${C.accent}"/></radialGradient></defs>${rect(x, y, w, h, `url(#${id})`, { rx: 10 })}${circ(x + w * .62, y + h * .55, Math.min(w, h) * .32, `url(#${id}b)`)}${rect(x, y + h * .78, w, h * .22, C.dark, { op: .9 })}`;
+
+/* ---------------- effects: draw(w, h, id, S) → SVG ---------------- */
+const FXS = [];
+/* 1 · Button → player (shape morph: the button's rect becomes the player; the icon travels and morphs play→pause) */
+FXS.push({ label: 'Button → player', dark: 1, draw: (w, h, id, S) => {
+  const k = S.p, Bt = [18, 18, 118, 38, 19], Pl = [16, 50, w - 32, h - 66, 18], r = Bt.map((v, i) => lerp(v, Pl[i], k));
+  const aw = Math.min(Pl[3] - 20, Pl[2] * .42), A0 = [Pl[0] + 10, Pl[1] + 10, aw, Pl[3] - 20], cx0 = Pl[0] + aw + 30, cw = Pl[0] + Pl[2] - 16 - cx0;
+  let o = note(w, 'shape morph');
+  o += rect(18, 18, 118, 38, C.paper, { rx: 19, op: .3 * clamp(k * 3) });
+  o += rect(r[0], r[1], r[2], r[3], C.paper, { rx: r[4], f: 'sh' });
+  if (k < .3) o += tx(r[0] + 40, r[1] + 25, Wd.player[0], { s: 16, op: 1 - k * 4 });
+  const c = ease((k - .45) / .5), prog = S.phase === 'hold' ? .2 + .7 * S.h : S.phase === 'ret' ? .9 : .2, my = Pl[1] + Pl[3] / 2;
+  if (c > 0) { o += `<defs>${clip(id + 'c', r[0], r[1], r[2], r[3], r[4])}</defs><g clip-path="url(#${id}c)" opacity="${r2(c)}">` + art(...A0, id + 'a');
+    const ts = VP.fitText(Wd.player[1], F, 700, cw, 20, 12);
+    o += tx(cx0, my - 16, Wd.player[1], { s: ts }) + tx(cx0, my + 8, `0:${String(Math.round(prog * 42)).padStart(2, '0')} / ${Wd.player[2]}`, { s: 13, mono: 1, w: 500, fill: C.g4 });
+    const y = my + 32, x0 = cx0, x1 = cx0 + cw, xp = lerp(x0, x1, prog);
+    o += path(`M${r2(x0)},${r2(y)} L${r2(x1)},${r2(y)}`, { stroke: C.g2, sw: 5 }) + path(`M${r2(x0)},${r2(y)} L${r2(xp)},${r2(y)}`, { stroke: C.accent, sw: 5 }) + circ(xp, y, 7, C.paper, { stroke: C.accent, sw: 2.5 }) + '</g>'; }
+  const playing = S.phase === 'hold' ? ease(S.h / .06) : S.phase === 'ret' ? 1 - ease(S.ret / .3) : 0;
+  const ix = lerp(37, A0[0] + A0[2] / 2, k), iy = lerp(37, A0[1] + A0[3] * .4, k), sc = lerp(.8, 1.3, k);
+  o += circ(ix, iy, 20 * ease((k - .3) / .5), C.ink, { op: .85 });
+  const A = [[-6, -8], [0, -4], [0, 4], [-6, 8]], Bq = [[0, -4], [7, 0], [7, 0], [0, 4]], P1 = [[-7, -8], [-2, -8], [-2, 8], [-7, 8]], P2 = [[2, -8], [7, -8], [7, 8], [2, 8]];
+  const shape = (X, Y) => 'M' + X.map((p, i) => `${r2(ix + 1.5 + lerp(p[0], Y[i][0], playing) * sc)},${r2(iy + lerp(p[1], Y[i][1], playing) * sc)}`).join(' L') + 'Z';
+  const col = mix(C.ink, C.paper, ease((k - .3) / .4));
+  return o + path(shape(A, P1), { fill: col }) + path(shape(Bq, P2), { fill: col });
+} });
+/* 2 · Bars → line (bars thin into stems while a smooth line draws through their tops) */
+FXS.push({ label: 'Bars → line', draw: (w, h, id, S) => {
+  const p = S.p, vals = Wd.chart[1], n = vals.length, base = h - 40, top = 84, mx = Math.max(...vals);
+  const xs = vals.map((_, i) => 40 + i * ((w - 80) / (n - 1))), pts = vals.map((v, i) => [xs[i], base - (v / mx) * (base - top)]);
+  let o = `<defs><linearGradient id="${id}ar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.accent2}" stop-opacity=".28"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0"/></linearGradient></defs>`;
+  o += tx(16, 30, Wd.chart[0], { s: 17 }) + tx(16, 50, 'illustrative data', { s: 11, mono: 1, w: 500, fill: C.g3 });
+  [0, 1, 2].forEach(i => { o += path(`M16,${r2(top + i * (base - top) / 3)} L${w - 16},${r2(top + i * (base - top) / 3)}`, { stroke: C.g1, sw: 1 }); });
+  o += path(`M16,${base} L${w - 16},${base}`, { stroke: C.g2, sw: 1.5 });
+  pts.forEach(([x, y], i) => { const ki = stagger(p * 1.2, i, n, .45), bw = lerp(30, 3, ki); o += rect(x - bw / 2, y, bw, base - y, mix(C.accent2, C.g2, ki), { rx: Math.min(5, bw / 2), op: lerp(.85, .45, ki) }); });
+  const smp = catmull(pts), lk = clamp((p - .2) / .7);
+  if (lk > 0) { o += path(dpath(smp) + ` L${xs[n - 1]},${base} L${xs[0]},${base} Z`, { fill: `url(#${id}ar)`, op: ease(lk) }) + path(dpath(partial(smp, lk)), { stroke: C.navy, sw: 3.2 }); }
+  pts.forEach(([x, y], i) => { const d = lk > 0 ? eOut((lk - i / (n - 1) + .03) / .1) : 0; if (d > 0) o += circ(x, y, (i === n - 1 ? 7 : 4.8) * d, i === n - 1 ? C.accent : C.paper, { stroke: i === n - 1 ? C.paper : C.navy, sw: 2.4 }); });
+  const tt = clamp((p - .86) / .14), [lx, ly] = pts[n - 1];
+  if (tt > 0) o += rect(lx - 58, ly - 34 + (1 - tt) * 8, 40, 26, C.ink, { rx: 8, op: tt }) + tx(lx - 38, ly - 16 + (1 - tt) * 8, String(vals[n - 1]), { s: 14, mono: 1, fill: C.paper, a: 'middle', op: tt });
+  Wd.chart[2].forEach((d, i) => { o += tx(xs[i], h - 14, d, { s: 13, w: 500, fill: C.g3, a: 'middle' }); });
+  return o;
+} });
+/* 3 · KPI zoom (the overview dims; one tile scales forward from its exact place; its number counts) */
+FXS.push({ label: 'KPI zoom', draw: (w, h, id, S) => {
+  const k = S.p, X = 14, Y = 14, WW = w - 28, HH = h - 28, kw = (WW - 32) / 3;
+  let o = rect(X, Y, WW, HH, C.paper, { rx: 14 }) + rect(X + 12, Y + 12, 60, 7, C.g2, { rx: 3.5 });
+  [0, 1, 2].forEach(j => { const x = X + 12 + j * (kw + 4); o += rect(x, Y + 30, kw, 44, C.g1, { rx: 8 }) + rect(x + 8, Y + 40, kw * .5, 5, C.g3, { rx: 2.5 }) + rect(x + 8, Y + 54, kw * .7, 9, j === 1 ? C.ink : C.g3, { rx: 3, op: j === 1 ? .6 : 1 }); });
+  o += path(dpath(catmull([[X + 14, Y + HH - 50], [X + WW * .3, Y + HH - 66], [X + WW * .55, Y + HH - 58], [X + WW * .8, Y + HH - 84], [X + WW - 14, Y + HH - 92]])), { stroke: C.g3, sw: 1.8 });
+  o += rect(X, Y, WW, HH, C.g1, { rx: 14, op: .55 * k });
+  const sx = X + 12 + kw + 4, sy = Y + 30, br = ease(S.p / .3);
+  [[sx, sy, 1, 1], [sx + kw, sy, -1, 1], [sx, sy + 44, 1, -1], [sx + kw, sy + 44, -1, -1]].forEach(([x, y, a, b]) => { o += path(`M${r2(x)},${r2(y + b * 9)} L${r2(x)},${r2(y)} L${r2(x + a * 9)},${r2(y)}`, { stroke: C.accent, sw: 2.4, op: br }); });
+  const zx = 30, zy = 26, zw = w - 60, zh = h - 52, zk = ease((S.p - .12) / .88);
+  o += path(`M${r2(sx)},${sy + 44} L${zx},${zy} M${r2(sx + kw)},${sy + 44} L${zx + zw},${zy}`, { stroke: C.accent, sw: 1.2, op: .5 * k, dash: '3 4' });
+  if (zk > 0) { const s = lerp(kw / zw, 1, zk), cx = lerp(sx, zx, zk), cy = lerp(sy, zy, zk), v = +Wd.kpi[1].replace(/,/g, '');
+    o += `<g transform="translate(${r2(cx)},${r2(cy)}) scale(${(s).toFixed(4)})">` + rect(0, 0, zw, zh, C.paper, { rx: 16 / Math.max(s, .4), f: 'sh' }) + `<g opacity="${r2(ease((zk - .2) / .5))}">`;
+    o += tx(20, 30, Wd.kpi[0], { s: 15, w: 500, fill: C.g4 }) + rect(zw - 74, 14, 58, 26, C.accent, { rx: 13, op: .16 }) + tx(zw - 45, 32, Wd.kpi[2], { s: 14, mono: 1, fill: C.accent, a: 'middle' });
+    o += tx(20, 36 + VP.fitText('00,000', F, 700, zw * .45, 50, 20), Math.round(v * eOut(zk)).toLocaleString('en-US'), { s: VP.fitText('00,000', F, 700, zw * .45, 50, 20) });
+    const tall = zh > 200, sx0 = tall ? 20 : zw * .52, A = tall ? zh - 150 : 50, sp = catmull([0, .25, .5, .75, 1].map((u, j) => [lerp(sx0, zw - 20, u), zh - 24 - A * [0, .32, .16, .76, 1][j]]));
+    if (tall) [0, 1, 2].forEach(g => { o += path(`M20,${r2(zh - 24 - A * g / 2)} L${zw - 20},${r2(zh - 24 - A * g / 2)}`, { stroke: C.g1, sw: 1 }); });
+    o += path(dpath(partial(sp, ease((zk - .35) / .6))), { stroke: C.accent2, sw: 3 }) + `</g></g>`; }
+  return o;
+} });
+/* 4 · Magnetic dock (icon size = gaussian of distance to a wandering cursor; tooltip follows the peak) */
+FXS.push({ label: 'Magnetic dock', dark: 1, draw: (w, h, id, S) => {
+  const n = Wd.dock.length, gap = 44, x0 = w / 2 - (n - 1) * gap / 2, cols = [C.accent2, C.accent, C.ice, C.paper, C.accent2, C.g3, C.ice];
+  let cx; const amp = S.phase === 'before' ? 0 : S.phase === 'ret' ? 1 - ease(S.ret) : S.phase === 'fwd' ? ease(S.p * 1.4) : 1;
+  if (S.phase === 'fwd') cx = lerp(w + 40, x0 + gap * 1.5, ease(S.p)); else if (S.phase === 'hold') cx = x0 + gap * 3 + gap * 2.2 * Math.sin(2 * Math.PI * S.h * 1.0 - Math.PI / 2 + Math.PI / 2) * -1; else cx = lerp(x0 + gap * 3, w + 40, ease(S.ret));
+  const sizes = Wd.dock.map((_, i) => 26 + 22 * amp * gauss(x0 + i * gap, cx, 46));
+  let o = note(w, 'gaussian falloff', { fill: C.ice });
+  const wsum = sizes.reduce((a, b) => a + b, 0) + (n - 1) * 10, dy = h - 60; let x = w / 2 - wsum / 2;
+  o += rect(x - 14, dy - 10, wsum + 28, 44 + 10, '#262930', { rx: 18 });
+  let best = 0, bi = 0; sizes.forEach((s, i) => { if (s > best) { best = s; bi = i; } });
+  sizes.forEach((s, i) => { o += rect(x, dy + 34 - s, s, s, cols[i], { rx: s * .26 }) + rect(x + s * .3, dy + 34 - s * .7, s * .4, s * .4, C.dark, { rx: s * .1, op: .5 }); if (i === bi && amp > .3) { o += rect(x + s / 2 - 36, dy + 34 - s - 40, 72, 28, C.paper, { rx: 8, op: amp }) + tx(x + s / 2, dy + 34 - s - 21, Wd.dock[i], { s: 13, a: 'middle', op: amp }); } x += s + 10; });
+  const cy = dy + 8; o += path(`M${r2(cx)},${r2(cy)} l0,22 l6,-5 l4,9 l4,-2 l-4,-9 l8,0 z`, { fill: C.paper, stroke: C.dark, sw: 1.5, op: amp > .05 ? 1 : 0 });
+  o += path(dpath(catmull([...Array(12)].map((_, i) => [20 + i * (w - 40) / 11, 70 - 34 * amp * gauss(20 + i * (w - 40) / 11, cx, 70)]))), { stroke: C.ice, sw: 1.2, op: .45, dash: '2 4' });
+  return o;
+} });
+/* 5 · Elastic word (letters stretch on a locked baseline, centre-out stagger) */
+FXS.push({ label: 'Elastic type', dark: 1, draw: (w, h, id, S) => {
+  const word = [...Wd.stretch], n = word.length, c = (n - 1) / 2, base = h - 70, s = VP.fitText(Wd.stretch, F, 700, w - 90, 64);
+  const ks = word.map((_, i) => stagger(S.p, i, n, .4, 'center')), sy = ks.map((k, i) => lerp(1, 1 + 1.1 * (1 - Math.abs(i - c) / c), k)), sx = ks.map((k, i) => lerp(1, 1 - .26 * (1 - Math.abs(i - c) / c), k));
+  const ws = word.map((ch, i) => VP.measure(ch, `700 ${s}px ${F}`) * sx[i]), tot = ws.reduce((a, b) => a + b, 0) + (n - 1) * 6; let x = (w - tot) / 2;
+  let o = note(w, `wdth ${Math.round(lerp(100, 62, S.p))}  wght 700`, { fill: C.ice }) + path(`M14,${base} L${w - 14},${base}`, { stroke: C.ice, sw: 1.2, op: .7 }) + tx(16, base + 18, 'baseline', { s: 12, mono: 1, w: 500, fill: C.ice, op: .75 });
+  word.forEach((ch, i) => { o += `<g transform="translate(${r2(x)},${base}) scale(${sx[i].toFixed(3)},${sy[i].toFixed(3)})">${tx(0, 0, ch, { s, fill: Math.abs(i - c) < .6 ? C.accent : C.paper })}</g>`; x += ws[i] + 6; });
+  return o;
+} });
+/* 6 · Glass lens (rows are soft; inside the lens they are sharp and magnified) */
+FXS.push({ label: 'Glass lens', draw: (w, h, id, S) => {
+  const rows = Wd.lens[1].slice(0, Math.max(3, Math.floor((h - 70) / 30))), X = 16, Y = 16, WW = w - 32, y0 = Y + 62, rh = (h - Y - y0 - 6) / rows.length;
+  const rowsSvg = rows.map(([a, b], i) => tx(X + 26, y0 + i * rh + rh * .62, a, { s: 15, w: 500, fill: C.g4 }) + tx(X + WW - 26, y0 + i * rh + rh * .62, b, { s: 15, mono: 1, fill: C.ink, a: 'end' }) + (i ? path(`M${X + 14},${r2(y0 + i * rh)} L${X + WW - 14},${r2(y0 + i * rh)}`, { stroke: C.g1, sw: 1 }) : '')).join('');
+  let o = rect(X, Y, WW, h - 32, C.paper, { rx: 14 }) + tx(X + 18, Y + 32, Wd.lens[0], { s: 17 }) + circ(X + WW - 22, Y + 26, 5, C.accent);
+  o += `<g filter="url(#bl)" opacity=".75">${rowsSvg}</g>`;
+  const pos = S.phase === 'hold' ? (rows.length - 1) * ease(S.h) : S.phase === 'ret' ? (rows.length - 1) * (1 - ease(S.ret)) : 0;
+  const lh = rh * 1.1, fy = y0 + pos * rh + rh / 2, ly = fy - lh / 2, lx = X + 6, lw = WW - 12, sc = lerp(1, 1.08, S.p), lk = eOut(S.p);
+  o += `<defs>${clip(id + 'l', lx + lw / 2 * (1 - lk), ly, lw * lk, lh, lh / 2)}</defs><g clip-path="url(#${id}l)">${rect(lx, ly, lw, lh, '#F4F8FB')}<g transform="translate(${r2(w / 2)},${r2(fy)}) scale(${sc.toFixed(3)}) translate(${r2(-w / 2)},${r2(-fy)})">${rowsSvg}</g></g>`;
+  o += rect(lx + lw / 2 * (1 - lk), ly, lw * lk, lh, 'none', { rx: lh / 2, stroke: C.accent2, sw: 1.6, op: lk }) + rect(lx + lh / 2, ly + 3, Math.max(0, lw * lk - lh), 3, '#fff', { rx: 1.5, op: .9 * lk });
+  return o;
+} });
+/* 7 · Flow (pulses travel the connectors; each node rings when one arrives) */
+FXS.push({ label: 'Flow paths', dark: 1, draw: (w, h, id, S) => {
+  const [a, mids, z] = Wd.flow, A = [70, h / 2], Z = [w - 70, h / 2], M = mids.map((_, i) => [w / 2, 56 + i * (h - 112) / (mids.length - 1)]);
+  const cub = (P, Q) => { const mx = (P[0] + Q[0]) / 2; return [P, [mx, P[1]], [mx, Q[1]], Q]; }, at = (c, t) => { const u = 1 - t; return [0, 1].map(k => u * u * u * c[0][k] + 3 * u * u * t * c[1][k] + 3 * u * t * t * c[2][k] + t * t * t * c[3][k]); };
+  const legs = [...M.map(m => cub(A, m)), ...M.map(m => cub(m, Z))], T = S.T, on = S.phase === 'before' ? 0 : S.phase === 'ret' ? 1 - ease(S.ret) : 1;
+  let o = `<defs><filter id="${id}g" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"/></filter></defs>` + note(w, 'pulse routing', { fill: C.ice });
+  legs.forEach((c, i) => { o += path(`M${c[0]} C${c[1]} ${c[2]} ${c[3]}`, { stroke: '#3A3E48', sw: 2 }); const lit = clamp((T - .2 - (i % mids.length) * .25 - (i >= mids.length ? 1.1 : 0)) / .9) * on; if (lit > 0) o += path(`M${c[0]} C${c[1]} ${c[2]} ${c[3]}`, { stroke: i < mids.length ? C.ice : C.accent, sw: 2.2, dash: `${r2(lit * 400)} 400` }); });
+  if (S.phase !== 'before') legs.forEach((c, i) => [0, 2.6, 5.2].forEach(off => { const g = (T - (i % mids.length) * .25 - (i >= mids.length ? 1.1 : 0) - off) / 1.1; if (g > 0 && g < 1 && on > 0) { const [x, y] = at(c, ease(g)); o += circ(x, y, 7, i < mids.length ? C.ice : C.accent, { op: .6 * on, f: id + 'g' }) + circ(x, y, 3, C.paper, { op: on }); } }));
+  const node = (p, label, t0, col) => { const tw = VP.measure(label, `700 15px ${F}`) + 36, r = clamp((T - t0) / .6); let s = ''; if (r > 0 && r < 1 && on > 0) s += rect(p[0] - tw / 2 - 6 * r, p[1] - 16 - 6 * r, tw + 12 * r, 32 + 12 * r, 'none', { rx: 16 + 6 * r, stroke: col, sw: 1.6 }).replace('/>', ` stroke-opacity="${r2(.7 * (1 - r))}"/>`); return s + rect(p[0] - tw / 2, p[1] - 16, tw, 32, '#262930', { rx: 16, stroke: '#3A3E48' }) + circ(p[0] - tw / 2 + 14, p[1], 4, col) + tx(p[0] - tw / 2 + 26, p[1] + 5, label, { s: 15, fill: C.paper }); };
+  o += node(A, a, 0, C.accent); M.forEach((m, i) => { o += node(m, mids[i], 1.1 + i * .25, C.ice); }); o += node(Z, z, 2.4, C.accent);
+  return o;
+} });
+/* 8 · Particles → mark (points sampled from the brand mark; seeded starts; curved travel with short trails) */
+let PTS = null;
+FXS.push({ label: 'Particle mark', draw: (w, h, id, S) => {
+  if (!PTS) PTS = VP.sampleText(Wd.mark, `700 ${Math.round(h * .62)}px ${F}`, Math.round(w), Math.round(h), 7);
+  const R = rng(7), cx = w / 2, cy = h / 2; let trails = '', dots = '';
+  PTS.forEach(([x, y]) => { const dl = (x / w) * .4 + R() * .12, sx = 20 + R() * (w - 40), sy = 40 + R() * (h - 80), t = eOut((S.p - dl) / .46), bend = Math.sin(Math.PI * t) * (sy - y) * -.14;
+    const ex = lerp(sx, x, t), ey = lerp(sy, y, t) + bend, hot = Math.abs(x - cx) < w * .08;
+    if (t > .02 && t < .9) trails += path(`M${r2(ex)},${r2(ey)} L${r2(ex + (sx - ex) * .15)},${r2(ey + (sy - ey) * .15)}`, { stroke: hot ? C.accent : C.navy, sw: 1, op: .2 });
+    dots += circ(ex, ey, t > .97 ? 2.6 : 2.1, hot ? C.accent : C.navy, { op: .35 + .65 * t }); });
+  return trails + dots + tx(16, 30, 'Mark 01', { s: 12, mono: 1, w: 500, fill: C.g4 }) + tx(w - 16, h - 14, S.p > .995 ? 'assembled' : 'assembling', { s: 12, w: 500, fill: C.g3, a: 'end' });
+} });
+
+/* ---------------- layout: board (2×4) or one effect full frame ---------------- */
+const tiles = [];
+function build() {
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="${C.navy}" flood-opacity=".16"/></filter>
+    <filter id="bl" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="1.8"/></filter></defs>${rect(0, 0, W, H, C.bg)}`;
+  for (let g = 40; g < W; g += 40) svg += `<path d="M${g},0 L${g},${H}" stroke="${C.navy}" stroke-opacity=".035"/>`;
+  for (let g = 40; g < H; g += 40) svg += `<path d="M0,${g} L${W},${g}" stroke="${C.navy}" stroke-opacity=".035"/>`;
+  const list = FX ? [FXS[FX - 1]] : FXS, Z = FX ? 2 : 1;
+  if (!FX) { const ts = VP.fitText(C.title.join(''), F, 700, W - 120, 60); let x = W / 2 - VP.measure(C.title.join(''), `700 ${ts}px ${F}`) / 2;
+    svg += `<text y="92" font-family="${F}" font-size="${ts}" font-weight="700">` + C.title.map((t, i) => { const s = `<tspan x="${r2(x)}" fill="${i === 1 ? C.accent : C.navy}">${esc(t)}</tspan>`; x += VP.measure(t, `700 ${ts}px ${F}`); return s; }).join('') + `</text>` + tx(W / 2, 132, C.subtitle, { s: 22, w: 500, fill: C.g4, a: 'middle' }); }
+  const cols = FX ? 1 : 2, top = FX ? 40 : 168, bot = FX ? H - 40 : H - 90, pad = 40, gap = 18, cw = (W - pad * 2 - gap * (cols - 1)) / cols, ch = (bot - top - gap * (Math.ceil(list.length / cols) - 1)) / Math.ceil(list.length / cols);
+  list.forEach((fx, i) => { const x0 = pad + (i % cols) * (cw + gap), y0 = top + Math.floor(i / cols) * (ch + gap), lab = FX ? 0 : 44, sw = (cw - 20) / Z, sh = (ch - 20 - lab) / Z, id = 't' + i;
+    svg += rect(x0, y0, cw, ch, C.card, { rx: 18, stroke: C.navy, sw: 1 }).replace('/>', ` stroke-opacity=".08"/>`) + `<clipPath id="${id}c"><rect width="${sw}" height="${sh}" rx="12"/></clipPath><g transform="translate(${x0 + 10},${y0 + 10}) scale(${Z})">${rect(0, 0, sw, sh, fx.dark ? C.dark : C.stage, { rx: 12 })}<g id="${id}" clip-path="url(#${id}c)"></g></g>`;
+    if (lab) { const [a, b] = fx.label.split(' → '); svg += tx(x0 + 16, y0 + ch - 16, String((FX || i + 1)).padStart(2, '0'), { s: 13, mono: 1, w: 500, fill: C.g3 }) + tx(x0 + 44, y0 + ch - 16, a, { s: 20, fill: C.navy }) + (b ? tx(x0 + 52 + VP.measure(a, `700 20px ${F}`), y0 + ch - 16, '→ ' + b, { s: 20, fill: C.navy }) : ''); }
+    tiles.push({ fx, sw, sh, id, off: FX ? 0 : (i % 4) * .12 }); });
+  if (!FX) svg += rect(W / 2 - 150, H - 66, 300, 44, C.navy, { rx: 22 }) + tx(W / 2, H - 38, C.handle, { s: 16, w: 500, fill: '#AEB8C7', a: 'middle' });
+  document.getElementById('stage').innerHTML = svg + '</svg>';
+  tiles.forEach(t => t.el = document.getElementById(t.id));
+}
+const LOOP = 8;
+function frame(t) { tiles.forEach(tl => { const S = POSTER ? { phase: 'hold', p: 1, T: 3.5, h: .3, ret: 0 } : cycle(t, { F: 2.2, H: 4.4, R: 1.4, loop: LOOP, offset: tl.off }); tl.el.innerHTML = tl.fx.draw(tl.sw, tl.sh, tl.id, S); }); }
+window.B = .5;
+(async () => { await document.fonts.load(`700 40px ${F}`); await document.fonts.load(`500 20px ${MO}`); build(); })();
+VP.boot({ seek: t => { if (tiles.length) frame(t); }, dur: LOOP, cues: () => [], fonts: [`700 40px ${F}`, `500 20px ${MO}`] });
+const r0 = window.ready; window.ready = (async () => { await r0; while (!tiles.length) await new Promise(r => setTimeout(r, 20)); frame(0); return true; })();
+})();
+</script></body></html>

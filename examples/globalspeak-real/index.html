@@ -1,0 +1,240 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>GlobalSpeak — real-UI film</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700;800&family=Be+Vietnam+Pro:wght@500;600;700;800&display=block" rel="stylesheet">
+<script src="../../engine/motion.js"></script>
+<style>
+:root{--navy:#1A2540;--navy2:#243155;--blue:#1E4DD8;--blue2:#3B6BEE;--red:#D32F2F;--cream:#FBF8F0;--cream2:#FAF6EC;--purple:#9D1DD7;--muted:#5B6479}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--cream)}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;color:var(--navy);font-family:'Be Vietnam Pro',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+#bg{position:absolute;inset:0;background:radial-gradient(90% 70% at 80% 0%,#FFFFFF 0%,rgba(255,255,255,0) 60%),var(--cream)}
+#bg .dots{position:absolute;inset:-40px;background-image:radial-gradient(rgba(26,37,64,.07) 1.3px,transparent 1.6px);background-size:34px 34px}
+.scene{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;display:none}
+.cam{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.hud{position:absolute;inset:0}
+.a{position:absolute}
+.roll{position:absolute;overflow:hidden}.roll>div{white-space:nowrap}
+.mask{display:inline-block;overflow:hidden;vertical-align:bottom;padding-bottom:.12em}.mask>span{display:inline-block}
+.b{color:var(--blue)}.r{color:var(--red)}
+.gs{font-family:'Geist',sans-serif}
+.win{position:absolute;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 2px 0 rgba(26,37,64,.06),0 50px 110px rgba(26,37,64,.22)}
+.win .bar{position:absolute;left:0;right:0;top:0;height:46px;background:#F3F1EA;border-bottom:1px solid #E6E2D6;display:flex;align-items:center;padding:0 18px;gap:9px}
+.win .bar i{width:13px;height:13px;border-radius:50%;display:block}
+.win .scr{position:absolute;left:0;top:46px;overflow:hidden;background:var(--cream)}
+.win .scr img{position:absolute;left:0;top:0;width:100%;display:block}
+.spot{position:absolute;border-radius:16px;border:3px solid var(--blue);pointer-events:none}
+.chip{position:absolute;display:flex;align-items:center;gap:10px;padding:0 26px;height:60px;border-radius:999px;background:#fff;border:2px solid rgba(26,37,64,.12);font-size:26px;font-weight:700;white-space:nowrap;box-shadow:0 12px 30px rgba(26,37,64,.12)}
+.card{position:absolute;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 30px 70px rgba(26,37,64,.28)}
+.card img{width:100%;height:100%;object-fit:cover;object-position:0 0;display:block}
+#cur{position:absolute;left:0;top:0;width:46px;height:46px;z-index:950;pointer-events:none;display:none}
+#ring{position:absolute;left:0;top:0;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;border:4px solid var(--blue);z-index:949;display:none}
+</style></head><body>
+<div id="stage"><div id="bg"><div class="dots"></div></div></div>
+<svg id="cur" viewBox="0 0 44 44"><path d="M8 4 L8 36 L16 28 L22 41 L28 38 L22 26 L33 26 Z" fill="#1A2540" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>
+<div id="ring"></div>
+<script>
+/* ===== GlobalSpeak — 60 s film, REAL UI ONLY =====
+   Every product screen is an unmodified screenshot from docs/user-guides/screenshots (1440×900).
+   Motion comes from camera moves, spotlights, cursor clicks and in-browser page changes — the UI itself is never redrawn.
+   Logo = public/logo.svg (inlined, parts animated in place). Colours = app/globals.css brand tokens. */
+const BPM = 113.336, B = VP.clock(BPM), W = 1920, H = 1080;
+const { sp, track, ramp, clamp, lerp, ease, eOut, SPR, roll } = VP;
+const $ = s => document.querySelector(s), stage = $('#stage');
+const f2 = v => (+v).toFixed(2), f4 = v => (+v).toFixed(4);
+function el(p, html) { p.insertAdjacentHTML('beforeend', html); return p.lastElementChild; }
+const words = t => t.split(' ').map(w => `<span class="mask"><span>${w}</span></span>`).join(' ');
+const wordsK = (e, b0, step = .14, out = null) => e.querySelectorAll('.mask>span').forEach((w, i) => { const k = sp(b0 + i * step, ...SPR.POP) - (out != null ? sp(out, ...SPR.SNAP) : 0); w.style.transform = `translateY(${f2((1 - k) * 110)}%)`; });
+function rollBox(p, x, y, w, h, html, style = '') { return el(p, `<div class="roll" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${style}"><div style="height:${h}px;line-height:${h}px">${html}</div></div>`); }
+const rollK = (e, a, o) => { const k = sp(a, ...SPR.SNAP) + (o != null ? sp(o, ...SPR.SNAP) : 0); roll(e.firstElementChild, k, e.offsetHeight); };
+const vis = (e, on) => { e.style.visibility = on ? 'visible' : 'hidden'; };
+const pop = (e, b0, pre = SPR.POP, rot = 0) => { const k = sp(b0, ...pre); e.style.transform = `${e.dataset.base || ''} scale(${f4(Math.max(0, k))}) rotate(${f2(rot * (1 - Math.min(1, k)))}deg)`; vis(e, k > .003); return k; };
+const IMG = n => `assets/${n}.png`;
+const LOGO = `<svg viewBox="0 0 200 200" width="100%" height="100%" style="overflow:visible"><defs><path id="arcTop" d="M 30,100 A 70,70 0 0 1 170,100" fill="none"/><path id="arcBottom" d="M 30,100 A 70,70 0 0 0 170,100" fill="none"/></defs>
+  <circle class="disc" cx="100" cy="100" r="96" fill="#FFFFFF"/>
+  <circle class="r1" cx="100" cy="100" r="96" fill="none" stroke="#1A2540" stroke-width="3" pathLength="1" stroke-dasharray="1 1"/>
+  <circle class="r2" cx="100" cy="100" r="88" fill="none" stroke="#1A2540" stroke-width="1.5" pathLength="1" stroke-dasharray="1 1"/>
+  <g class="dots"><circle cx="14" cy="100" r="3" fill="#D32F2F"/><circle cx="186" cy="100" r="3" fill="#D32F2F"/></g>
+  <g class="txt"><text fill="#1A2540" font-family="Geist, system-ui, sans-serif" font-weight="700" font-size="14" letter-spacing="2"><textPath href="#arcTop" startOffset="50%" text-anchor="middle">GLOBALSPEAK</textPath></text>
+  <text fill="#1A2540" font-family="Geist, system-ui, sans-serif" font-weight="700" font-size="11" letter-spacing="3"><textPath href="#arcBottom" startOffset="50%" text-anchor="middle">ACADEMY</textPath></text></g>
+  <g transform="translate(100, 92)"><g class="globe"><circle r="30" fill="#1E4DD8"/>
+    <g class="grid" fill="none" stroke="#FFFFFF" stroke-width="1.3"><ellipse rx="30" ry="12" pathLength="1" stroke-dasharray="1 1"/><ellipse rx="15" ry="30" pathLength="1" stroke-dasharray="1 1"/><line x1="-30" y1="0" x2="30" y2="0" pathLength="1" stroke-dasharray="1 1"/><line x1="0" y1="-30" x2="0" y2="30" pathLength="1" stroke-dasharray="1 1"/></g></g></g>
+  <g transform="translate(100, 130)"><g class="pl"><path d="M -28,-2 L 0,2 L 0,18 L -28,12 Z" fill="#1A2540"/><path d="M -28,-2 L 0,2 L 0,18 L -28,12 Z" fill="none" stroke="#1A2540" stroke-width="1" stroke-linejoin="round"/></g>
+    <g class="pr"><path d="M 28,-2 L 0,2 L 0,18 L 28,12 Z" fill="#D32F2F"/><path d="M 28,-2 L 0,2 L 0,18 L 28,12 Z" fill="none" stroke="#1A2540" stroke-width="1" stroke-linejoin="round"/></g></g></svg>`;
+const WORDMARK = (s) => `<span class="gs" style="font-size:${s}px;font-weight:700;letter-spacing:-.02em;color:var(--navy)">GlobalSpeak <span style="color:var(--purple)">Platform</span></span>`;
+
+/* cursor + ring (stage coords) */
+let CUR = null;
+/* ===== scenes ===== */
+const S = [];
+function scene(id, start, end, inT, build, anim, o = {}) {
+  const root = el(stage, `<div class="scene" id="${id}" style="z-index:${S.length + 1}"><div class="cam"></div><div class="hud"></div></div>`);
+  const s = { id, start, end, in: inT, root, cam: root.firstElementChild, hud: root.lastElementChild, anim, ...o }; build(s.cam, s); S.push(s); return s;
+}
+/* headline stack in the HUD: [[html, in, out], ...] */
+function HEAD(s, lines, y = 44, size = 60, color = 'var(--navy)', band = true) {
+  if (band) el(s.hud, `<div class="a" style="left:0;top:0;width:1920px;height:${y + size * 1.3 + 60}px;background:linear-gradient(180deg,var(--cream) 0%,rgba(251,248,240,.94) 60%,rgba(251,248,240,0) 100%)"></div>`);
+  s.hl = lines; s.hle = lines.map(([t]) => rollBox(s.hud, 0, y, W, size * 1.3, `<span style="font-size:${size}px;font-weight:700;letter-spacing:-.02em;color:${color}">${t}</span>`, 'text-align:center'));
+}
+const headK = s => s.hle.forEach((e, i) => rollK(e, s.hl[i][1], s.hl[i][2]));
+
+/* ---- browser with real screenshots: camera keys, spotlight keys, page changes ---- */
+const FX = 210, FY = 200, FW = 1500, SC = FW / 1440, FH = 900 * SC;   // frame placement (screen area top = FY+46)
+const toStage = (x, y) => [FX + x * SC, FY + 46 + y * SC];
+const VIEW = [960, 632];
+function browser(c, s, pages) {
+  s.win = el(c, `<div class="win" style="left:${FX}px;top:${FY}px;width:${FW}px;height:${FH + 46}px"><div class="bar"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div><div class="scr" style="width:${FW}px;height:${f2(FH)}px"></div></div>`);
+  s.scr = s.win.querySelector('.scr'); s.pages = pages.map(([n, b]) => ({ b, e: el(s.scr, `<img src="${IMG(n)}">`) }));
+  s.spot = el(c, `<div class="spot"></div>`);
+}
+/* shots: [beat, rect|null] rect in screenshot px — camera centres the rect below the headline and zooms to fit */
+function camFor(r) { if (!r) return [1, VIEW[0], VIEW[1]]; const [x, y, w, h] = r, [sx, sy] = toStage(x + w / 2, y + h / 2), z = clamp(Math.min(1640 / (w * SC), 760 / (h * SC)), 1, 1.7); return [z, sx, sy]; }
+function drive(s, b) {
+  const keys = s.shots.map(([bt, r]) => [bt, camFor(r), 1.25, .92]); const [z, cx, cy] = track(keys);
+  const ox = VIEW[0] - cx * z, oy = VIEW[1] - cy * z; s.camNow = [z, ox, oy];
+  s.cam.style.transform = `translate(${f2(ox)}px,${f2(oy)}px) scale(${f4(z)})`;
+  /* spotlight */
+  let cur = null, curB = -1; s.shots.forEach(([bt, r]) => { if (b >= bt) { cur = r; curB = bt; } });
+  const rk = s.shots.map(([bt, r]) => [bt, r ? (() => { const [x0, y0] = toStage(r[0] - 10, r[1] - 10); return [x0, y0, (r[2] + 20) * SC, (r[3] + 20) * SC]; })() : null]).filter(k => k[1]);
+  if (rk.length) { const R = track(rk.map(([bt, v]) => [bt, v, 1.4, .9])); Object.assign(s.spot.style, { left: f2(R[0]) + 'px', top: f2(R[1]) + 'px', width: f2(R[2]) + 'px', height: f2(R[3]) + 'px' }); }
+  const al = clamp(track(s.shots.map(([bt, r]) => [bt, r ? 1 : 0, 1.6, .95])));
+  s.spot.style.boxShadow = `0 0 0 4000px rgba(26,37,64,${f4(.42 * al)})`; s.spot.style.opacity = f4(al); vis(s.spot, al > .005);
+  /* page changes: vertical push inside the browser (old up, new in from below) */
+  s.pages.forEach((p, i) => { const nx = s.pages[i + 1], kin = i === 0 ? 1 : ease(clamp((b - p.b) / .9)), kout = nx ? ease(clamp((b - nx.b) / .9)) : 0;
+    const y = (1 - kin) * 100 - kout * 100; p.e.style.transform = `translateY(${f2(y)}%)`; vis(p.e, (i === 0 || b >= p.b) && kout < 1); });
+}
+/* cursor in screenshot px → stage (through camera) */
+function cursorAt(s, keys, presses = []) {
+  const b = VP.bt; if (b < keys[0][0] || b > keys[keys.length - 1][0] + .8) return; let x = keys[0][1], y = keys[0][2];
+  for (let i = 1; i < keys.length; i++) if (b >= keys[i - 1][0]) { const k = ease(clamp((b - keys[i - 1][0]) / (keys[i][0] - keys[i - 1][0]))); x = lerp(keys[i - 1][1], keys[i][1], k); y = lerp(keys[i - 1][2], keys[i][2], k); }
+  const [z, ox, oy] = s.camNow || [1, 0, 0], [px, py] = toStage(x, y), X = ox + px * z, Y = oy + py * z; let press = 0, ring = null;
+  presses.forEach(p => { if (b >= p - .12 && b < p + .3) press = Math.sin(clamp((b - p + .12) / .42) * Math.PI); if (b >= p && b < p + 1.2) ring = { x: X, y: Y, k: (b - p) / 1.2 }; });
+  CUR = { x: X, y: Y, press, ring };
+}
+
+/* 1 · LOGO — the real mark assembles itself (0–10.6) */
+scene('logo', 0, 10.8, 'none', (c, s) => {
+  s.logo = el(c, `<div class="a" style="left:${960 - 190}px;top:190px;width:380px;height:380px">${LOGO}</div>`);
+  s.wm = rollBox(c, 0, 620, W, 110, WORDMARK(92), 'text-align:center');
+  s.tag = el(c, `<div class="a gs" style="left:0;right:0;top:760px;text-align:center;font-size:36px;font-weight:500;color:var(--muted)">${words('Book Language Classes with Expert Teachers')}</div>`);
+}, (s, b) => {
+  const L = s.logo, q = k => L.querySelector(k);
+  q('.r1').style.strokeDashoffset = f4(1 - ease(ramp(.3, 2.2, x => x))); q('.r2').style.strokeDashoffset = f4(-1 + ease(ramp(.6, 2.4, x => x)));
+  const g = sp(1.9, 2.3, .55); q('.globe').setAttribute('transform', `scale(${f4(Math.max(0, g))})`);
+  L.querySelectorAll('.grid *').forEach((p, i) => p.style.strokeDashoffset = f4(1 - ease(ramp(2.5 + i * .15, 3.4 + i * .15, x => x))));
+  q('.pl').setAttribute('transform', `scale(1 ${f4(Math.max(0, sp(3.1, 2.4, .6)))})`); q('.pr').setAttribute('transform', `scale(1 ${f4(Math.max(0, sp(3.35, 2.4, .6)))})`);
+  const t = ease(ramp(3.6, 4.5, x => x)); q('.txt').setAttribute('opacity', f4(t)); q('.txt').setAttribute('transform', `translate(0 ${f2((1 - t) * 8)})`);
+  q('.dots').setAttribute('opacity', f4(clamp(sp(4.3, 2.6, .5))));
+  rollK(s.wm, 4.8); wordsK(s.tag, 5.8, .12);
+  /* zoom-through the blue globe on the lift */
+  const z = ramp(9.2, 10.6, x => x * x * x), gx = 960, gy = 190 + 92 * 1.9; VP.camera(s.cam, 1 + 70 * z, gx, gy);
+});
+
+/* 2 · HOOK on blue — one platform, four roles, four real screens (10–18.6) */
+const ROLES = [['student-home', 'Học viên'], ['teacher-dashboard', 'Giáo viên'], ['owner-admin-dashboard', 'Admin'], ['owner-admin-branding', 'Chủ trung tâm']];
+const CARDX = i => 80 + i * 450, CARDY = 340, CW = 410, CHh = 256;
+scene('hook', 10, 18.8, 'none', (c, s) => {
+  s.root.style.background = 'linear-gradient(120deg,#1A2540 0%,#1B2C5B 45%,#1E4DD8 100%)';
+  HEAD(s, [['Một nền tảng.', 10.3, 13.9], ['Bốn vai trò. <span style="color:#9DB6FF">Một lịch học.</span>', 14.1, null]], 130, 92, '#fff', false);
+  s.cards = ROLES.map(([n], i) => el(c, `<div class="card" style="left:${CARDX(i)}px;top:${CARDY}px;width:${CW}px;height:${CHh}px"><img src="${IMG(n)}"></div>`));
+  s.chips = ROLES.map(([, t], i) => el(c, `<div class="chip" style="left:${CARDX(i)}px;top:${CARDY + CHh + 50}px;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.3);box-shadow:none">${t}</div>`));
+}, (s, b) => {
+  headK(s);
+  s.cards.forEach((e, i) => { const k = sp(11 + i * .3, 1.9, .72), r = [-4, 2, -2, 4][i]; e.style.transform = `translateY(${f2((1 - k) * 500)}px) rotate(${f2(r * Math.min(1, k))}deg)`; vis(e, b > 10.9);
+    if (i > 0) { const out = ease(ramp(17.6, 18.6, x => x)); e.style.translate = `${f2(out * 1200)}px 0`; } });
+  s.chips.forEach((e, i) => { const k = pop(e, 14.4 + i * .2); e.style.left = f2(CARDX(i) + CW / 2 - e.offsetWidth / 2) + 'px'; e.style.opacity = f4(1 - ease(ramp(17.4, 18, x => x))); });
+});
+
+/* 3 · STUDENT — home → book → confirm → bookings, all real screens (17.8–52.6) */
+scene('student', 17.8, 52.8, 'grow', (c, s) => {
+  browser(c, s, [['student-home', 0], ['student-book-slots', 28.4], ['student-book-confirm', 40.6], ['student-bookings', 45.8]]);
+  HEAD(s, [['Học viên: mọi thứ ngay <span class="b">trang chủ.</span>', 18.8, 20.2], ['Buổi học kế tiếp — <span class="b">luôn nằm trên cùng.</span>', 20.4, 23.2], ['Credit còn lại — <span class="b">nhìn là biết.</span>', 23.4, 25.9],
+    ['Đặt lớp chỉ <span class="b">vài chạm.</span>', 26.1, 28.8], ['3 bước: <span class="b">lớp · giáo viên · khung giờ.</span>', 29, 32.2], ['Chọn <span class="b">nhiều slot</span> trong một lần đặt.', 32.4, 36],
+    ['Slot vượt số credit — <span class="b">tự khoá.</span>', 36.2, 40.4], ['Xác nhận <span class="b">tự động</span>, không chờ duyệt.', 40.8, 45.6], ['Lịch của tôi: <span class="b">vào lớp · sửa · huỷ.</span>', 46, 49], ['Huỷ được đến <span class="r">2 giờ</span> trước giờ học.', 49.2, null]]);
+  s.shots = [[17.8, null], [20.4, [96, 437, 1248, 157]], [23.4, [945, 618, 398, 185]], [26.1, null], [29.2, [129, 510, 1182, 115]], [32.4, [129, 640, 1182, 260]], [36.2, [129, 420, 1182, 78]], [39.8, null],
+    [41.4, [882, 318, 270, 420]], [45.2, null], [46.8, [288, 255, 864, 353]], [49.2, [1000, 290, 150, 60]], [51, null]];
+}, (s, b) => {
+  headK(s); drive(s, b);
+  /* grow out of the first hook card */
+  const g = ease(ramp(17.8, 19, x => x)), r0 = [CARDX(0), CARDY, CW, CHh + 0], r1 = [FX, FY, FW, FH + 46];
+  if (b < 19) { const r = r0.map((v, i) => lerp(v, r1[i], g)); const sc = r[2] / FW; s.win.style.transform = `translate(${f2(r[0] - FX)}px,${f2(r[1] - FY)}px) scale(${f4(sc)})`; s.win.style.transformOrigin = '0 0'; } else s.win.style.transform = '';
+  s.root.style.background = 'var(--cream)'; s.root.style.clipPath = b < 19.2 ? `circle(${f2(lerp(170, 2300, ease(ramp(17.8, 19.2, x => x))))}px at ${CARDX(0) + CW / 2}px ${CARDY + CHh / 2}px)` : 'none';
+  cursorAt(s, [[26.4, 1100, 700], [27.4, 720, 292], [28.3, 720, 292], [32.6, 900, 820], [33.4, 460, 874], [34.2, 460, 874], [42.4, 1250, 720], [43.4, 1016, 652], [44.4, 1016, 652]], [27.6, 33.5, 43.6]);
+});
+
+/* 4 · CLASSROOM — Google Meet + one-tap attendance (52.4–64) */
+scene('class', 52.4, 64.2, 'rise', (c, s) => {
+  browser(c, s, [['student-classroom', 0]]);
+  HEAD(s, [['Lớp học online qua <span class="b">Google Meet.</span>', 52.8, 56.2], ['Điểm danh <span class="b">một chạm.</span>', 56.4, 60.2], ['Giáo viên thấy ngay — <span class="b">real-time.</span>', 60.4, null]]);
+  s.shots = [[52.4, null], [53.6, [288, 205, 570, 235]], [56.4, [290, 468, 570, 150]], [60.4, [290, 560, 570, 70]]];
+}, (s, b) => { headK(s); drive(s, b); cursorAt(s, [[56.6, 900, 700], [57.8, 573, 504], [58.8, 573, 504]], [58]); });
+
+/* 5 · TEACHER — dashboard, Google Calendar, availability, late-cancel handover (63.8–82) */
+scene('teacher', 63.8, 82.2, 'push', (c, s) => {
+  browser(c, s, [['teacher-dashboard', 0], ['teacher-availability', 70.2], ['cases-teacher-cancel-handover', 75.8]]);
+  HEAD(s, [['Giáo viên: cả tuần dạy <span class="b">trong một màn hình.</span>', 64.2, 67.2], ['Tự đồng bộ <span class="b">Google Calendar.</span>', 67.4, 70.4], ['Mở lịch rảnh: <span class="b">bấm là xong.</span>', 70.6, 75.8], ['Huỷ sát giờ? <span class="r">Chuyển admin</span> xử lý.', 76, null]]);
+  s.shots = [[63.8, null], [65, [288, 183, 1119, 427]], [67.4, [288, 356, 1119, 84]], [69.8, null], [71, [312, 380, 1071, 470]], [75.2, null], [76.8, [470, 250, 500, 400]]];
+}, (s, b) => { headK(s); drive(s, b); cursorAt(s, [[71.2, 1000, 800], [72.2, 700, 510], [72.9, 700, 510]], [72.4]); });
+
+/* 6 · ADMIN + OWNER — pulse, alerts, plans, branding (81.8–100.4) */
+scene('admin', 81.8, 100.6, 'push', (c, s) => {
+  browser(c, s, [['owner-admin-dashboard', 0], ['cases-admin-alerts', 85.6], ['owner-admin-plans', 89.6], ['owner-admin-branding', 94.8]]);
+  HEAD(s, [['Admin: cả trung tâm <span class="b">trong tầm mắt.</span>', 82.2, 85.6], ['Huỷ muộn, vắng mặt — <span class="r">xử lý ngay.</span>', 85.8, 89.8], ['Gói học: <span class="b">credit</span> hoặc <span class="b">không giới hạn.</span>', 90, 94.8], ['Đổi thương hiệu — <span class="b">đồng bộ trong ~2 giây.</span>', 95, null]]);
+  s.shots = [[81.8, null], [82.8, [288, 183, 1119, 152]], [85.2, null], [86.6, [288, 262, 1119, 260]], [89.2, null], [90.4, [288, 225, 360, 323]], [92.4, [668, 225, 360, 323]], [94.4, null], [95.6, [312, 280, 870, 420]]];
+}, (s, b) => { headK(s); drive(s, b); cursorAt(s, [[86.8, 1100, 600], [87.8, 1317, 294], [88.6, 1317, 294]], [88]); });
+
+/* 7 · END — the real screens as a wall, logo lands (100.2–118) */
+const WALL = ['student-home', 'teacher-dashboard', 'owner-admin-plans', 'student-book-slots', 'teacher-availability', 'owner-admin-dashboard', 'student-classroom', 'owner-admin-branding', 'student-bookings', 'teacher-schedule', 'student-browse', 'owner-admin-classes'];
+scene('end', 100.2, 119, 'iris', (c, s) => {
+  s.wall = el(c, `<div class="a" style="left:-300px;top:-250px;width:2520px;height:1580px;transform:rotate(-8deg)"></div>`);
+  s.rows = [0, 1, 2, 3].map(r => { const row = el(s.wall, `<div class="a" style="left:0;top:${60 + r * 390}px;height:350px;width:7000px"></div>`); for (let i = 0; i < 12; i++) el(row, `<div class="card" style="left:${i * 590}px;top:0;width:560px;height:350px"><img src="${IMG(WALL[(i + r * 3) % WALL.length])}"></div>`); return row; });
+  s.shade = el(c, `<div class="a" style="inset:0;background:radial-gradient(60% 60% at 50% 48%,rgba(251,248,240,.97) 38%,rgba(251,248,240,.55) 100%)"></div>`);
+  s.logo = el(c, `<div class="a" style="left:${960 - 150}px;top:170px;width:300px;height:300px">${LOGO}</div>`);
+  s.wm = rollBox(c, 0, 500, W, 110, WORDMARK(88), 'text-align:center');
+  s.tag = el(c, `<div class="a" style="left:0;right:0;top:640px;text-align:center;font-size:44px;font-weight:600">${words('Học ngoại ngữ cùng giáo viên giỏi — đặt lịch trong vài giây.')}</div>`);
+  s.cta = el(c, `<div class="a" style="left:${960 - 230}px;top:760px;width:460px;height:84px;border-radius:999px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;box-shadow:0 20px 40px rgba(26,37,64,.3)">Book a class →</div>`);
+}, (s, b) => {
+  const t = (b - 100.2) * B; s.rows.forEach((r, i) => r.style.transform = `translateX(${f2((i % 2 ? -1 : 1) * t * 28 - 1500)}px)`);
+  const L = s.logo, q = k => L.querySelector(k);
+  q('.r1').style.strokeDashoffset = f4(1 - ease(ramp(100.8, 102.2, x => x))); q('.r2').style.strokeDashoffset = f4(-1 + ease(ramp(101, 102.4, x => x)));
+  q('.globe').setAttribute('transform', `scale(${f4(Math.max(0, sp(101.2, 2.3, .55)))})`); L.querySelectorAll('.grid *').forEach(p => p.style.strokeDashoffset = 0);
+  q('.pl').setAttribute('transform', `scale(1 ${f4(Math.max(0, sp(101.8, 2.4, .6)))})`); q('.pr').setAttribute('transform', `scale(1 ${f4(Math.max(0, sp(102, 2.4, .6)))})`);
+  q('.txt').setAttribute('opacity', f4(ease(ramp(102, 102.8, x => x)))); q('.dots').setAttribute('opacity', f4(clamp(sp(102.4, 2.6, .5))));
+  rollK(s.wm, 103); wordsK(s.tag, 104.2, .1); const k = pop(s.cta, 106.4, SPR.POP);
+  VP.camera(s.cam, 1.04 - .04 * ease(ramp(100.2, 118, x => x)), 960, 540);
+});
+
+/* ===== transitions ===== */
+function trans(s, b) {
+  const k = ['none', 'grow'].includes(s.in) ? 1 : sp(s.start, 1.5, .86); let tf = '', clip = s.in === 'grow' ? s.root.style.clipPath : '';
+  switch (s.in) {
+    case 'push': tf = `translateX(${f2((1 - k) * W)}px)`; break;
+    case 'rise': tf = `translateY(${f2((1 - k) * H)}px)`; break;
+    case 'iris': clip = `circle(${f2(Math.hypot(W, H) / 2 * clamp(k * 1.02))}px at 50% 50%)`; s.root.style.background = 'var(--cream)'; break;
+  }
+  const nx = S[S.indexOf(s) + 1];
+  if (nx && b >= nx.start) { const kx = sp(nx.start, 1.5, .86);
+    tf += { push: ` translateX(${f2(-kx * W * .3)}px)`, rise: ` translateY(${f2(-kx * H * .25)}px)`, iris: ` scale(${f4(lerp(1, .96, kx))})` }[nx.in] || ''; }
+  s.root.style.transform = tf; if (s.in !== 'grow') s.root.style.clipPath = clip;
+}
+/* ===== frame ===== */
+const DUR = 118 * B, cur = $('#cur'), ring = $('#ring'), dots = $('#bg .dots');
+function frame(t) {
+  const b = VP.at(t); CUR = null; dots.style.transform = `translate(${f2(-(t * 5) % 34)}px,${f2(-(t * 2) % 34)}px)`;
+  S.forEach(s => { const on = b >= s.start - .01 && b < s.end; s.root.style.display = on ? 'block' : 'none'; if (!on) return; trans(s, b); s.anim(s, b); });
+  if (CUR) { cur.style.display = 'block'; cur.style.transform = `translate(${f2(CUR.x - 8)}px,${f2(CUR.y - 4)}px) scale(${f4(1 - .15 * CUR.press)})`;
+    if (CUR.ring) { ring.style.display = 'block'; ring.style.left = f2(CUR.ring.x) + 'px'; ring.style.top = f2(CUR.ring.y) + 'px'; ring.style.transform = `scale(${f4(.2 + .9 * eOut(CUR.ring.k))})`; ring.style.opacity = f4(1 - CUR.ring.k); } else ring.style.display = 'none';
+  } else { cur.style.display = 'none'; ring.style.display = 'none'; }
+}
+function cues() {
+  const c = [{ beat: .3, type: 'swoosh', gain: -26 }, { beat: 1.9, type: 'pop', gain: -22 }, { beat: 9.4, type: 'rise', gain: -22 }, { beat: 10, type: 'hit', gain: -15 }];
+  S.forEach(s => { if (['push', 'rise', 'iris'].includes(s.in)) c.push({ beat: s.start, type: s.in === 'iris' ? 'swoosh-deep' : 'swoosh', gain: -22 }); });
+  [11, 11.3, 11.6, 11.9].forEach(bt => c.push({ beat: bt, type: 'pop', gain: -25 })); c.push({ beat: 17.8, type: 'swoosh', gain: -21 });
+  [27.6, 33.5, 43.6, 58, 72.4, 88].forEach(bt => c.push({ beat: bt, type: 'click', gain: -19 }));
+  [28.4, 40.6, 45.8, 70.2, 75.8, 85.6, 89.6, 94.8].forEach(bt => c.push({ beat: bt, type: 'swoosh', gain: -27 }));
+  c.push({ beat: 43.9, type: 'notify', gain: -21 }, { beat: 101.2, type: 'hit', gain: -16 }, { beat: 106.4, type: 'pop', gain: -21 });
+  return c;
+}
+VP.boot({ seek: frame, dur: DUR, cues, fonts: ['700 40px "Geist"', '500 40px "Geist"', '700 40px "Be Vietnam Pro"', '600 40px "Be Vietnam Pro"'] });
+window.SIZE = [W, H]; window.B = B;
+</script></body></html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>AI Banner Pro — 60s film</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Be+Vietnam+Pro:ital,wght@0,800;1,800&family=Playfair+Display:ital,wght@0,700;1,700&display=block" rel="stylesheet">
+<script src="../../engine/motion.js"></script>
+<script src="products.js"></script>
+<script src="banners.js"></script>
+<style>
+:root{--bg:#0B1220;--surface:#111A2E;--raised:#1A2541;--raised2:#243154;--line:#1F2A40;--line2:#2C3A56;--fg:#F1F5F9;--muted:#94A3B8;--subtle:#64748B;--brand:#F67D1C;--brand-l:#FFA85C;--ok:#6EE7B7}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg)}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;color:var(--fg);font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+#bg{position:absolute;inset:0;background:var(--bg)}
+#bg .dots{position:absolute;inset:-40px;background-image:radial-gradient(rgba(148,163,184,.13) 1.3px,transparent 1.6px);background-size:36px 36px}
+#bg .g{position:absolute;border-radius:50%}
+#vig{position:absolute;inset:0;background:radial-gradient(130% 100% at 50% 45%,rgba(0,0,0,0) 55%,rgba(0,0,0,.45) 100%);pointer-events:none;z-index:900}
+.scene{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;display:none}
+.cam{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.hud{position:absolute;inset:0}
+.a{position:absolute}
+.mono{font-family:'JetBrains Mono',monospace}
+.roll{position:absolute;overflow:hidden}.roll>div{white-space:nowrap}
+.mask{display:inline-block;overflow:hidden;vertical-align:bottom;padding-bottom:.12em}.mask>span{display:inline-block}
+.o{color:var(--brand)}
+.bn{position:absolute;overflow:hidden;container-type:size;border-radius:14px}
+.pop{box-shadow:6px 6px 0 0 rgba(0,0,0,.85)}
+.win{position:absolute;background:var(--surface);border:1.5px solid var(--line2);border-radius:22px;overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,.55)}
+.win .bar{position:absolute;left:0;right:0;top:0;height:46px;border-bottom:1.5px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:9px}
+.win .bar i{width:13px;height:13px;border-radius:50%;background:var(--line2);display:block}
+.win .bar b{margin-left:14px;font:500 15px 'JetBrains Mono';color:var(--subtle)}
+.lab{position:absolute;font:600 15px 'JetBrains Mono';letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.fld{position:absolute;background:var(--raised);border:1.5px solid var(--line2);border-radius:12px;display:flex;align-items:center;padding:0 18px;font-size:22px;font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden}
+.pill{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:11px;background:var(--raised);border:1.5px solid var(--line2);font:600 19px 'JetBrains Mono';color:var(--muted)}
+.pill.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn{position:absolute;display:flex;align-items:center;justify-content:center;gap:12px;border-radius:14px;background:var(--brand);color:#fff;font-weight:700;box-shadow:5px 5px 0 0 rgba(0,0,0,.85)}
+.chip{position:absolute;display:flex;align-items:center;gap:10px;padding:0 20px;height:46px;border-radius:999px;background:var(--raised);border:1.5px solid var(--line2);font:500 19px 'JetBrains Mono';color:var(--muted);white-space:nowrap}
+.card{position:absolute;background:var(--surface);border:1.5px solid var(--line2);border-radius:20px}
+.note{font:500 16px 'JetBrains Mono';color:var(--brand-l);letter-spacing:.02em}
+#cur{position:absolute;left:0;top:0;width:44px;height:44px;z-index:950;pointer-events:none;display:none}
+#ring{position:absolute;left:0;top:0;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;border:3px solid var(--brand-l);z-index:949;display:none}
+#flash{position:absolute;inset:0;background:var(--brand);z-index:940;display:none}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+ <filter id="softblur" x="-50%" y="-300%" width="200%" height="700%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs></svg>
+<div id="stage"><div id="bg"><div class="dots"></div><div class="g" id="g1"></div><div class="g" id="g2"></div></div><div id="flash"></div><div id="vig"></div></div>
+<svg id="cur" viewBox="0 0 44 44"><path d="M8 4 L8 36 L16 28 L22 41 L28 38 L22 26 L33 26 Z" fill="#fff" stroke="#0B1220" stroke-width="2.6" stroke-linejoin="round"/></svg>
+<div id="ring"></div>
+<script>
+/* ===== AI Banner Pro — 60 s film =====
+   Brand from the repo (index.html tailwind theme): canvas #0B1220, surfaces #111A2E/#1A2541, Vibe Orange #F67D1C,
+   IBM Plex Sans + JetBrains Mono, "pop" shadow 4–6 px hard black. UI labels are the app's own (AppShell NAV_ITEMS,
+   OutputRow, QueueTab columns, StudioChat, CampaignWizard). Banners/brands/numbers are illustrative (fictional). */
+const BPM = 99.596, B = VP.clock(BPM), W = 1920, H = 1080;
+const { sp, track, ramp, clamp, lerp, ease, eOut, SPR, roll } = VP;
+const $ = s => document.querySelector(s), stage = $('#stage');
+const f2 = v => (+v).toFixed(2), f4 = v => (+v).toFixed(4);
+function el(p, html) { p.insertAdjacentHTML('beforeend', html); return p.lastElementChild; }
+const words = (t, cls = '') => t.split(' ').map(w => `<span class="mask"><span class="${cls}">${w}</span></span>`).join(' ');
+function rollBox(p, x, y, w, h, html, style = '') { return el(p, `<div class="roll" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${style}"><div style="height:${h}px;line-height:${h}px">${html}</div></div>`); }
+const rollK = (e, a, o) => { const k = sp(a, ...SPR.SNAP) + (o != null ? sp(o, ...SPR.SNAP) : 0); roll(e.firstElementChild, k, e.offsetHeight); };
+const wordsK = (e, b0, step = .16, out = null) => e.querySelectorAll('.mask>span').forEach((w, i) => { const k = sp(b0 + i * step, ...SPR.POP) - (out != null ? sp(out, ...SPR.SNAP) : 0); w.style.transform = `translateY(${f2((1 - k) * 110)}%)`; });
+const vis = (e, on) => { e.style.visibility = on ? 'visible' : 'hidden'; };
+/* pop-in with spring scale; base transform kept in data-base */
+const pop = (e, b0, pre = SPR.POP, rot = 0) => { const k = sp(b0, ...pre); e.style.transform = `${e.dataset.base || ''} scale(${f4(Math.max(0, k))}) rotate(${f2(rot * (1 - Math.min(1, k)))}deg)`; vis(e, k > .003); return k; };
+const typeK = (e, text, b0, b1) => { const n = Math.floor(text.length * clamp((VP.bt - b0) / (b1 - b0))); e.textContent = text.slice(0, n); return n; };
+/* icons (lucide paths, 24×24, stroke) */
+const ICO = {
+  wand: '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/>',
+  home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  user: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7 21v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+  palette: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1a1.6 1.6 0 0 1 1.6-1.6H16c3 0 5.5-2.5 5.5-5.5C21.9 6 17.5 2 12 2z"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  mega: '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+  zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>', send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  spark: '<path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2Z"/>', check: '<path d="M20 6 9 17l-5-5"/>',
+};
+const ico = (k, s = 22, c = 'currentColor', sw = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex:none">${ICO[k]}</svg>`;
+const logoTile = (s) => `<div style="width:${s}px;height:${s}px;border-radius:${s * .26}px;background:var(--brand);display:flex;align-items:center;justify-content:center;box-shadow:${s * .05}px ${s * .05}px 0 rgba(0,0,0,.85)">${ico('wand', s * .54, '#fff', 2.2)}</div>`;
+const banner = (i, x, y, w, h, extra = '') => `<div class="bn pop" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${extra}">${BN.html(i, 'position:absolute;inset:0;border-radius:0')}</div>`;
+function lumi(p, x, y, w, h, extra = '', bg = '') { const e = el(p, `<div class="a" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${extra}">${LUMI.make()}</div>`); const b = e.firstElementChild; b.style.cssText += ';position:absolute;inset:0;border-radius:inherit' + (bg ? ';background:' + bg : ''); LUMI.layout(b, w, h); e.lumi = b; return e; }
+
+/* cursor (stage coords, set by scenes each frame) */
+let CUR = null;
+const camPt = (s, x, y) => { const c = s.camNow || [1, 960, 540]; return [c[1] - c[1] * c[0] + x * c[0], c[2] - c[2] * c[0] + y * c[0]]; };
+const cam = (s, z, fx, fy) => { s.camNow = [z, fx, fy]; VP.camera(s.cam, z, fx, fy); };
+/* cursor path: list of [beat, x, y] keys (cam coords) → eased position; press beats → click dip */
+const cursorAt = (s, keys, presses = []) => { const b = VP.bt; if (b < keys[0][0] || b > keys[keys.length - 1][0] + 1.2) return; let x = keys[0][1], y = keys[0][2];
+  for (let i = 1; i < keys.length; i++) { const k = ease(clamp((b - keys[i - 1][0]) / (keys[i][0] - keys[i - 1][0]))); if (b >= keys[i - 1][0]) { x = lerp(keys[i - 1][1], keys[i][1], k); y = lerp(keys[i - 1][2], keys[i][2], k); } }
+  const [X, Y] = camPt(s, x, y); let press = 0, ring = null; presses.forEach(p => { if (b >= p - .12 && b < p + .3) press = Math.sin(clamp((b - p + .12) / .42) * Math.PI); if (b >= p && b < p + 1.2) ring = { x: X, y: Y, k: (b - p) / 1.2 }; });
+  CUR = { x: X, y: Y, press, ring }; };
+const pressBtn = (e, p) => { const b = VP.bt, k = b >= p - .12 && b < p + .35 ? Math.sin(clamp((b - p + .12) / .47) * Math.PI) : 0; e.style.transform = `translate(${f2(k * 5)}px,${f2(k * 5)}px)`; e.style.boxShadow = `${f2(5 - 5 * k)}px ${f2(5 - 5 * k)}px 0 0 rgba(0,0,0,.85)`; };
+
+/* ===== scenes ===== */
+const S = [];
+function scene(id, start, end, inT, build, anim) {
+  const root = el(stage, `<div class="scene" id="${id}" style="z-index:${S.length + 1}"><div class="cam"></div><div class="hud"></div></div>`);
+  const s = { id, start, end, in: inT, root, cam: root.firstElementChild, hud: root.lastElementChild, anim }; build(s.cam, s); S.push(s); return s;
+}
+/* headline in the HUD (outside the camera): mono chapter label + big line(s) */
+function HEAD(s, chapter, lines, x = 0, y = 64, size = 70, w = W, align = 'center') {
+  if (y < 120) el(s.hud, `<div class="a" style="left:0;top:0;width:1920px;height:${y + 34 + size * 1.28 + 70}px;background:linear-gradient(180deg,#0B1220 0%,rgba(11,18,32,.92) 55%,rgba(11,18,32,0) 100%)"></div>`);
+  const h = { ch: chapter ? rollBox(s.hud, x, y, w, 30, `<span class="mono" style="font-size:18px;font-weight:700;letter-spacing:.18em;color:var(--brand)">${chapter}</span>`, `text-align:${align}`) : null, l: [] };
+  lines.forEach(([txt]) => h.l.push(rollBox(s.hud, x, y + 34, w, size * 1.28, `<span style="font-size:${size}px;font-weight:700;letter-spacing:-.02em">${txt}</span>`, `text-align:${align}`)));
+  return h;
+}
+const headK = (h, lines, chIn, chOut) => { if (h.ch) rollK(h.ch, chIn, chOut); h.l.forEach((e, i) => rollK(e, lines[i][1], lines[i][2])); };
+
+/* 1 · BRIEF — one sentence in, a whole set of banners out (0–12.6) */
+const BRIEF = 'Serum Vitamin C cho da xỉn màu · tông cam đào · Sale 30% · 1:1';
+const GRID = [];   // 10 banners around the centre
+scene('brief', 0, 12.9, 'none', (c, s) => {
+  s.hl = [['Viết một câu brief.', .5, 8.3], ['Nhận cả bộ <span class="o">banner quảng cáo.</span>', 8.6, null]];
+  s.h = HEAD(s, '', s.hl, 0, 120, 84);
+  s.card = el(c, `<div class="card" style="left:300px;top:450px;width:1320px;height:170px;background:var(--raised);border-color:rgba(246,125,28,.55);box-shadow:0 0 0 6px rgba(246,125,28,.08),0 30px 80px rgba(0,0,0,.5)">
+    <div class="lab" style="left:34px;top:22px">brief · banner tool</div>
+    <div class="a" style="left:34px;top:62px;width:950px;height:80px;display:flex;align-items:center;font-size:31px;font-weight:500;white-space:nowrap"><span class="typed"></span><i class="caret" style="display:inline-block;width:3px;height:38px;background:var(--brand);margin-left:4px"></i></div></div>`);
+  s.btn = el(s.card, `<div class="btn" style="left:1030px;top:52px;width:250px;height:76px;font-size:27px">${ico('spark', 26, '#fff')}Generate</div>`);
+  s.typed = s.card.querySelector('.typed'); s.caret = s.card.querySelector('.caret');
+  s.note = el(c, `<div class="a note" style="left:300px;top:640px">prompt → gpt_image_2 · nano banana pro</div>`);
+  s.burst = el(c, `<div class="a" style="left:960px;top:540px;width:10px;height:10px;border-radius:50%;background:radial-gradient(closest-side,rgba(246,125,28,.55),rgba(246,125,28,0));transform:translate(-50%,-50%)"></div>`);
+  const pos = [[-760, -120, -7], [-450, -175, 4], [-140, -200, -3], [170, -190, 5], [480, -140, -4], [-640, 170, 5], [-320, 220, -4], [0, 245, 3], [320, 215, -6], [640, 160, 4]];
+  const idx = [1, 2, 3, 4, 5, 6, 7, 8, 1, 3];
+  pos.forEach(([dx, dy, r], i) => { const e = el(c, banner(idx[i], 960 + dx - 130, 650 + dy - 130, 260, 260)); e.dataset.base = `rotate(${r}deg)`; e.dx = dx; e.dy = dy; GRID.push(e); });
+  s.hero = lumi(c, 960 - 170, 650 - 170, 340, 340, 'border-radius:18px;overflow:hidden;box-shadow:8px 8px 0 rgba(0,0,0,.85)');
+}, (s, b) => {
+  headK(s.h, s.hl);
+  const k = sp(0, ...SPR.HEAVY); s.card.style.transform = `translateY(${f2((1 - k) * 60)}px) scale(${f4(lerp(1, .82, ease(ramp(7.7, 8.8, x => x))))})`;
+  s.card.style.opacity = f4(1 - ease(ramp(8.1, 8.9, x => x)));
+  typeK(s.typed, BRIEF, 1.6, 6.2); s.caret.style.opacity = (b < 6.2 || Math.floor(b * 2) % 2) ? 1 : 0;
+  s.note.style.opacity = f4(ease(ramp(6, 6.8, x => x)) * (1 - ease(ramp(7.9, 8.4, x => x))));
+  pressBtn(s.btn, 7.6); cursorAt(s, [[5.8, 1500, 900], [7.3, 1180, 540], [8.1, 1180, 540]], [7.6]);
+  const bk = ramp(7.7, 9.6, x => x); s.burst.style.width = s.burst.style.height = f2(10 + 2600 * eOut(bk)) + 'px'; s.burst.style.opacity = f4((1 - bk) * (bk > 0 ? 1 : 0));
+  const out = ease(ramp(12, 12.9, x => x));
+  GRID.forEach((e, i) => { const k2 = pop(e, 8.2 + i * .09, SPR.POP, 0); e.style.translate = `${f2(e.dx * .9 * out)}px ${f2(e.dy * .9 * out + (1 - Math.min(1, k2)) * 80)}px`; e.style.opacity = f4(1 - out); });
+  const kh = pop(s.hero, 8.05, [2.2, .6]); s.hero.style.translate = `0px ${f2(-out * 40)}px`; s.hero.style.opacity = f4(1 - ease(ramp(12.2, 12.9, x => x)));
+  cam(s, 1.08 - .08 * ease(ramp(8, 12.6, x => x)), 960, 560);
+});
+
+/* 2 · LOGO on the music lift (12–20.8) */
+scene('logo', 12.2, 20.8, 'none', (c, s) => {
+  s.tile = el(c, `<div class="a" style="left:880px;top:400px;width:160px;height:160px">${logoTile(160)}</div>`);
+  s.wm = el(c, `<div class="a" style="left:0;top:392px;height:180px;white-space:nowrap;font-size:150px;font-weight:700;letter-spacing:-.035em;line-height:180px;overflow:hidden">AI Banner <span class="o">Pro</span></div>`);
+  s.tag = el(c, `<div class="a" style="left:0;right:0;top:620px;text-align:center;font-size:40px;font-weight:500;color:var(--muted)">${words('Banner quảng cáo bằng AI — từ brief đến Meta Ads.')}</div>`);
+  s.chips = ['Nano Banana Pro', 'GPT Image 2', 'Gemini', 'Coachio AI'].map((t, i) => el(c, `<div class="chip" style="top:740px">${i < 2 ? ico('zap', 18, '#F67D1C') : ''}${t}</div>`));
+}, (s, b) => {
+  const wmW = s.wm.scrollWidth, tot = 160 + 44 + wmW, x0 = 960 - tot / 2;
+  const slide = ease(ramp(12.9, 13.9, x => x)), k = sp(12.2, 2.3, .55);
+  s.tile.style.left = f2(lerp(880, x0, slide)) + 'px'; s.tile.style.transform = `scale(${f4(Math.max(0, k))}) rotate(${f2((1 - Math.min(1, k)) * -30)}deg)`; vis(s.tile, k > .003);
+  s.wm.style.left = f2(x0 + 204) + 'px'; s.wm.style.clipPath = `inset(-10% ${f2((1 - slide) * 100)}% -10% 0)`;
+  wordsK(s.tag, 14.2, .12);
+  let cx = 0; const ws = s.chips.map(e => e.offsetWidth), tw = ws.reduce((a, v) => a + v, 0) + 16 * (ws.length - 1); s.chips.forEach((e, i) => { e.style.left = f2(960 - tw / 2 + cx) + 'px'; cx += ws[i] + 16; pop(e, 15.4 + i * .22, SPR.POP); });
+  /* zoom-through the orange tile into the app */
+  const z = ramp(19.1, 20.6, x => x * x * x), tx = x0 + 130, ty = 530;
+  cam(s, 1 + 60 * z, tx, ty);
+});
+</script>
+<script src="scenes2.js"></script>
+</body></html>

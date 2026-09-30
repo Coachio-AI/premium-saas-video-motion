@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="GlobalSpeak Academy">
+  <defs>
+    <path id="arcTop" d="M 30,100 A 70,70 0 0 1 170,100" fill="none" />
+    <path id="arcBottom" d="M 30,100 A 70,70 0 0 0 170,100" fill="none" />
+  </defs>
+
+  <!-- Outer dark ring -->
+  <circle cx="100" cy="100" r="96" fill="#FFFFFF" stroke="#1A2540" stroke-width="3" />
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#1A2540" stroke-width="1.5" />
+
+  <!-- Side red dots -->
+  <circle cx="14" cy="100" r="3" fill="#D32F2F" />
+  <circle cx="186" cy="100" r="3" fill="#D32F2F" />
+
+  <!-- Arched text top -->
+  <text fill="#1A2540" font-family="Geist, system-ui, sans-serif" font-weight="700" font-size="14" letter-spacing="2">
+    <textPath href="#arcTop" startOffset="50%" text-anchor="middle">GLOBALSPEAK</textPath>
+  </text>
+
+  <!-- Arched text bottom -->
+  <text fill="#1A2540" font-family="Geist, system-ui, sans-serif" font-weight="700" font-size="11" letter-spacing="3">
+    <textPath href="#arcBottom" startOffset="50%" text-anchor="middle">ACADEMY</textPath>
+  </text>
+
+  <!-- Globe -->
+  <g transform="translate(100, 92)">
+    <circle r="30" fill="#1E4DD8" />
+    <!-- Meridians + equator (white grid) -->
+    <ellipse rx="30" ry="12" fill="none" stroke="#FFFFFF" stroke-width="1.3" />
+    <ellipse rx="15" ry="30" fill="none" stroke="#FFFFFF" stroke-width="1.3" />
+    <line x1="-30" y1="0" x2="30" y2="0" stroke="#FFFFFF" stroke-width="1.3" />
+    <line x1="0" y1="-30" x2="0" y2="30" stroke="#FFFFFF" stroke-width="1.3" />
+  </g>
+
+  <!-- Open book -->
+  <g transform="translate(100, 130)">
+    <!-- Left page -->
+    <path d="M -28,-2 L 0,2 L 0,18 L -28,12 Z" fill="#1A2540" />
+    <!-- Right page -->
+    <path d="M 28,-2 L 0,2 L 0,18 L 28,12 Z" fill="#D32F2F" />
+    <!-- Page outlines -->
+    <path d="M -28,-2 L 0,2 L 0,18 L -28,12 Z" fill="none" stroke="#1A2540" stroke-width="1" stroke-linejoin="round" />
+    <path d="M 28,-2 L 0,2 L 0,18 L 28,12 Z" fill="none" stroke="#1A2540" stroke-width="1" stroke-linejoin="round" />
+  </g>
+</svg>

@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<title>CNV CDP — 60s product film</title>
+<link href="assets/fonts-local.css" rel="stylesheet">
+<script src="../../engine/motion.js"></script>
+<style>
+:root{--pink:#FF8FAB;--pink2:#FFB3C6;--hot:#FF3560;--rose:#F67C98;--blush:#FFF2F5;--navy:#38475B;--ink:#1E2633;--muted:#6B7686;--zalo:#0068FF;--blue:#2F6BFF;--line:#E6EAF0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#fff}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;font-family:'Be Vietnam Pro',system-ui,sans-serif;color:var(--navy);-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+.scene{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;display:none}
+.cam{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.hud{position:absolute;inset:0}
+.a{position:absolute}
+.disp{font-weight:800;letter-spacing:-.035em;line-height:1.08}
+.mask{display:inline-block;overflow:hidden;vertical-align:bottom;padding:0 .02em .1em}
+.mask>span{display:inline-block}
+.roll{position:absolute;overflow:hidden}
+.roll>div{white-space:nowrap}
+.card{position:absolute;background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(56,71,91,.14),0 0 0 1px rgba(56,71,91,.05);overflow:hidden}
+.pill{position:absolute;display:flex;align-items:center;justify-content:center;gap:12px;border-radius:999px;font-weight:700;white-space:nowrap}
+.phone{position:absolute;background:#111;border-radius:52px;padding:12px;box-shadow:0 40px 90px rgba(30,38,51,.28)}
+.phone>.scr{position:relative;width:100%;height:100%;border-radius:41px;overflow:hidden;background:#fff}
+.phone>.scr>img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
+.ui{font-family:'Nunito Sans','Be Vietnam Pro',sans-serif;letter-spacing:0}
+.node{position:absolute;background:#fff;border-radius:18px;box-shadow:0 18px 50px rgba(30,38,51,.12),0 0 0 1px rgba(30,38,51,.06);font-family:'Nunito Sans',sans-serif;color:#1E2633;letter-spacing:0}
+.node .hd{height:72px;display:flex;align-items:center;gap:14px;padding:0 22px;font-size:26px;font-weight:700}
+.node .bd{margin:0 18px;background:#F2F5FA;border-radius:10px;padding:14px 18px;font-size:23px;line-height:1.5}
+.node .ft{height:62px;display:flex;align-items:center;justify-content:flex-end;padding-right:62px;font-size:21px;color:#333}
+.plus{position:absolute;width:38px;height:38px;border-radius:50%;background:var(--blue);color:#fff;font-size:30px;line-height:36px;text-align:center;font-weight:400}
+.src{position:absolute;height:74px;border-radius:20px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.18);display:flex;align-items:center;gap:14px;padding:0 22px 0 12px;color:#fff;font-size:25px;font-weight:600;white-space:nowrap}
+.src i{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:17px;font-weight:800;color:#fff}
+.tag{display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:999px;font-size:20px;font-weight:600;margin:0 10px 10px 0}
+.tile{position:absolute;border-radius:22px;overflow:hidden;box-shadow:0 20px 50px rgba(120,10,40,.25);border:6px solid #fff;background:#fff}
+.tile img{width:100%;height:100%;display:block;object-fit:cover}
+</style></head><body>
+<div id="stage"></div>
+<script>
+/* ============ CNV CDP — 60 s product film · brand from cnv.vn (logo CNV CDP, pink #FF8FAB, navy #38475B, CTA #FF3560) ============ */
+const BPM = 99.596, B = VP.clock(BPM), W = 1920, H = 1080;
+const { sp, track, ramp, clamp, lerp, ease, eOut, SPR, place, roll } = VP;
+const $ = s => document.querySelector(s), stage = $('#stage');
+const f2 = v => (+v).toFixed(2), f4 = v => (+v).toFixed(4);
+const words = (t, cls = '') => t.split(' ').map(w => `<span class="mask"><span class="${cls}">${w}</span></span>`).join(' ');
+function el(parent, html) { parent.insertAdjacentHTML('beforeend', html); return parent.lastElementChild; }
+function rollBox(parent, x, y, w, h, text, style = '') { return el(parent, `<div class="roll" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${style}"><div style="height:${h}px;line-height:${h}px">${text}</div></div>`); }
+const rollK = (e, bin, bout) => { const k = sp(bin, ...SPR.SNAP) + (bout ? sp(bout, ...SPR.SNAP) : 0); roll(e.firstElementChild, k, e.offsetHeight); };
+const popK = (e, b0, preset = SPR.POP, origin = '50% 50%', b1) => { let k = sp(b0, ...preset); if (b1) k *= 1 - sp(b1, ...SPR.SNAP); e.style.transformOrigin = origin; e.style.transform = `scale(${f4(Math.max(0, k))})`; e.style.visibility = k > .002 ? 'visible' : 'hidden'; return k; };
+const wIn = (root, b0, st = .1, bout) => root.querySelectorAll('.mask>span').forEach((s, i) => { const k = sp(b0 + i * st, ...SPR.SNAP), ko = bout ? sp(bout + i * st * .5, ...SPR.SNAP) : 0; s.style.transform = `translateY(${f2((1 - k) * 110 - ko * 110)}%)`; });
+const riseIn = (e, b0, dy = 120, preset = SPR.GLIDE) => { const k = sp(b0, ...preset); e.style.transform = `translateY(${f2((1 - k) * dy)}px)`; e.style.visibility = b0 <= VP.bt ? 'visible' : 'hidden'; return k; };
+const fmtVN = v => Math.round(v).toLocaleString('de-DE');
+const phone = (p, x, y, w, h, inner) => el(p, `<div class="phone" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><div class="scr">${inner}</div></div>`);
+
+/* logo geometry: heart bbox inside logo.png (1024×239) = x13..269, y16..222; symbol.png bbox = 19..1005 × 29..824 of 1024×853 */
+const LOGO_W = 1000, LOGO_X = (W - LOGO_W) / 2, LOGO_Y = 392, ls = LOGO_W / 1024;
+const HEART = [LOGO_X + 13 * ls, LOGO_Y + 16 * ls, 256 * ls, 206 * ls];
+const symRect = (cx, cy, bw) => { const sw = bw * 1024 / 986, k = sw / 1024; return [cx - bw / 2 - 19 * k, cy - (795 * k) / 2 - 29 * k, sw, 853 * k]; };
+
+/* ============ scenes ============ */
+const S = [];
+function scene(id, start, end, bg, inT, build, anim) {
+  const root = el(stage, `<div class="scene" id="${id}" style="background:${bg};z-index:${S.length + 1}"><div class="cam"></div><div class="hud"></div></div>`);
+  const s = { id, start, end, in: inT, root, cam: root.firstElementChild, hud: root.lastElementChild, anim }; build(s.cam, s); S.push(s); return s;
+}
+
+/* 1 · OPEN — heart pops, becomes the logo, tagline, zoom through the heart (0–10) */
+scene('open', 0, 10.02, 'radial-gradient(1400px 900px at 50% 45%,#FFFFFF 0%,#FFF2F5 60%,#FFE3EA 100%)', 'none', (c, s) => {
+  s.glow = el(c, `<div class="a" style="left:360px;top:40px;width:1200px;height:1000px;background:radial-gradient(closest-side,rgba(255,143,171,.35),rgba(255,143,171,0))"></div>`);
+  s.logo = el(c, `<img class="a" src="assets/logo.png" style="left:${LOGO_X}px;top:${LOGO_Y}px;width:${LOGO_W}px">`);
+  s.sym = el(c, `<img class="a" src="assets/symbol.png">`);
+  s.tag = el(c, `<div class="a" style="left:0;right:0;top:700px;text-align:center;font-size:46px;font-weight:500;color:var(--navy)">${words('Nền tảng Marketing Automation trên Zalo')}</div>`);
+  s.tag2 = el(c, `<div class="a" style="left:0;right:0;top:772px;text-align:center;font-size:30px;font-weight:600;color:var(--rose);letter-spacing:.12em">${words('ZALO OA · MINI APP · CDP')}</div>`);
+}, (s, b) => {
+  // heart: pop in centre (big), then glide into the logo lockup
+  const pop = sp(.3, 2.1, .55), move = sp(3.2, 1.6, .82);
+  const big = symRect(960, 520, 360), fin = [HEART[0], HEART[1], HEART[2]]; const finR = symRect(fin[0] + fin[2] / 2, fin[1] + HEART[3] / 2, fin[2]);
+  const r = big.map((v, i) => lerp(v, finR[i], move)), sc = Math.max(0, pop);
+  const cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2;
+  place(s.sym, [cx - r[2] * sc / 2, cy - r[3] * sc / 2 + (1 - move) * Math.sin(clamp(b / 3) * Math.PI) * -12, r[2] * sc, r[3] * sc]);
+  s.sym.style.transform = `rotate(${f2((1 - clamp(pop)) * -18)}deg)`;
+  // wordmark reveal: clip from the heart edge to the right
+  const rev = VP.eOutQuint(ramp(3.9, 5.6, x => x)), full = move > .985 && b > 4.2;
+  s.logo.style.clipPath = `inset(0 ${f2((1 - rev) * (LOGO_W - 280 * ls))}px 0 ${f2(280 * ls * (full ? 0 : 1))}px)`;
+  s.logo.style.transform = `translateX(${f2((1 - rev) * -40)}px)`;
+  s.sym.style.visibility = full ? 'hidden' : 'visible';
+  if (full) s.logo.style.clipPath = `inset(0 ${f2((1 - rev) * (LOGO_W - 280 * ls))}px 0 0)`;
+  wIn(s.tag, 5.2, .12); wIn(s.tag2, 6.4, .1);
+  s.glow.style.transform = `scale(${f4(1 + .06 * Math.sin(b * .8))})`;
+  // zoom-through the left lobe of the heart → pink fills the frame
+  const z = 1 + 70 * Math.pow(ramp(8.4, 10, x => x), 3.2);
+  VP.camera(s.cam, z, HEART[0] + HEART[2] * .16, HEART[1] + HEART[3] * .3);
+});
+
+/* 2 · HOOK — giant type on pink (10–18) */
+scene('hook', 10, 18.02, 'linear-gradient(135deg,#FF8FAB 0%,#FF6A8E 55%,#FF3560 100%)', 'cut', (c, s) => {
+  s.g1 = el(c, `<div class="a" style="left:-200px;top:-300px;width:1100px;height:1100px;background:radial-gradient(closest-side,rgba(255,255,255,.28),rgba(255,255,255,0))"></div>`);
+  s.g2 = el(c, `<div class="a" style="left:1100px;top:400px;width:1100px;height:1100px;background:radial-gradient(closest-side,rgba(255,53,96,.55),rgba(255,53,96,0))"></div>`);
+  const st = 'color:#fff;text-align:center';
+  s.l1 = rollBox(c, 0, 380, W, 180, `<span class="disp" style="font-size:136px">Khách mua một lần…</span>`, st);
+  s.l2 = rollBox(c, 0, 380, W, 180, `<span class="disp" style="font-size:136px">…rồi quên bạn.</span>`, st);
+  s.l3 = rollBox(c, 0, 330, W, 190, `<span class="disp" style="font-size:150px">CNV giữ họ ở lại.</span>`, st);
+  s.l3b = el(c, `<div class="a" style="left:0;right:0;top:560px;text-align:center;color:#fff;font-size:44px;font-weight:500;opacity:.95">${words('Chăm sóc tự động · Tích điểm · Mua lại — ngay trên Zalo')}</div>`);
+  s.l1.firstElementChild.style.textAlign = s.l2.firstElementChild.style.textAlign = s.l3.firstElementChild.style.textAlign = 'center';
+}, (s, b) => {
+  rollK(s.l1, 10.3, 12.6); rollK(s.l2, 12.7, 14.9); rollK(s.l3, 15);
+  wIn(s.l3b, 15.8, .08);
+  s.g1.style.transform = `translate(${f2(b * 18 - 180)}px,${f2(b * 6)}px)`; s.g2.style.transform = `translate(${f2(-b * 14 + 140)}px,0)`;
+  s.cam.style.transform = `scale(${f4(1 + .025 * ramp(10, 18, x => x))})`; s.cam.style.transformOrigin = '960px 540px';
+});
+
+/* 3 · MINI APP — real mockup from cnv.vn + points chip (18–28) */
+scene('miniapp', 18, 28.02, 'linear-gradient(160deg,#FFF6F8 0%,#FFE6EC 100%)', 'rise', (c, s) => {
+  s.img = el(c, `<img class="a" src="assets/miniapp.png" style="left:770px;top:150px;width:1120px">`);
+  s.chip = el(c, `<div class="pill" style="left:1010px;top:470px;height:74px;padding:0 30px;background:var(--hot);color:#fff;font-size:32px;box-shadow:0 14px 34px rgba(255,53,96,.4)">+50 điểm</div>`);
+  s.h1 = el(s.hud, `<div class="a disp" style="left:120px;top:250px;width:680px;font-size:92px;color:var(--navy)">${words('Mini App Zalo')}</div>`);
+  s.h2 = el(s.hud, `<div class="a" style="left:120px;top:370px;width:640px;font-size:50px;font-weight:600;line-height:1.2;color:var(--rose)">${words('mang thương hiệu của chính bạn')}</div>`);
+  s.chips = ['Thẻ thành viên', 'Tích điểm', 'Đổi thưởng', 'Đặt lịch', 'Mua hàng'].map((t, i) => el(s.hud, `<div class="pill" style="left:${120 + [0, 300, 0, 250, 460][i]}px;top:${[560, 560, 650, 650, 650][i]}px;height:70px;padding:0 28px;background:#fff;color:var(--navy);font-size:28px;font-weight:600;box-shadow:0 10px 30px rgba(56,71,91,.1)">${t}</div>`));
+  s.note = el(s.hud, `<div class="a" style="left:120px;top:800px;font-size:24px;color:var(--muted);font-weight:500">Giao diện mẫu từ cnv.vn</div>`);
+}, (s, b) => {
+  const k = sp(18.4, 1.4, .85); s.img.style.transform = `translateX(${f2((1 - k) * 260)}px)`;
+  wIn(s.h1, 18.9, .12); wIn(s.h2, 19.6, .08);
+  s.chips.forEach((c, i) => popK(c, 20.6 + i * .28, SPR.POP, '0% 50%'));
+  s.note.style.visibility = b > 21 ? 'visible' : 'hidden';
+  // screen-studio zoom onto the Gold membership card, then back
+  const z = track([[18, 1], [22.4, 1.42, 1.3, .86], [26.2, 1.08, 1.3, .9]]);
+  VP.camera(s.cam, z, 1000, 690);
+  // +50 điểm chip flies up out of the card
+  const ck = popK(s.chip, 23.6, SPR.POP, '50% 100%', 26);
+  s.chip.style.top = f2(560 - 90 * sp(23.6, 1.6, .8)) + 'px';
+});
+
+/* 4 · QR — scan, share phone, become a member (28–36) */
+function qrSVG(n = 25, px = 12, seed = 7) {
+  const r = VP.rng(seed); let o = ''; const fin = (x, y) => `<rect x="${x * px}" y="${y * px}" width="${7 * px}" height="${7 * px}" fill="#1E2633"/><rect x="${(x + 1) * px}" y="${(y + 1) * px}" width="${5 * px}" height="${5 * px}" fill="#fff"/><rect x="${(x + 2) * px}" y="${(y + 2) * px}" width="${3 * px}" height="${3 * px}" fill="#1E2633"/>`;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const inF = (x < 8 && y < 8) || (x > n - 9 && y < 8) || (x < 8 && y > n - 9); if (!inF && r() > .52) o += `<rect x="${x * px}" y="${y * px}" width="${px}" height="${px}" fill="#1E2633"/>`; }
+  return `<svg width="${n * px}" height="${n * px}" viewBox="0 0 ${n * px} ${n * px}">${fin(0, 0)}${fin(n - 7, 0)}${fin(0, n - 7)}<rect x="${(n / 2 - 2.5) * px}" y="${(n / 2 - 2.5) * px}" width="${5 * px}" height="${5 * px}" rx="10" fill="#fff"/><image href="assets/symbol.png" x="${(n / 2 - 2.2) * px}" y="${(n / 2 - 2) * px}" width="${4.4 * px}" height="${3.7 * px}"/>${o ? '' : ''}</svg>`.replace('</svg>', o + '</svg>');
+}
+scene('qr', 28, 36.02, '#FFFFFF', 'push', (c, s) => {
+  el(c, `<div class="a" style="left:-100px;top:420px;width:1000px;height:900px;background:radial-gradient(closest-side,rgba(255,143,171,.22),rgba(255,143,171,0))"></div>`);
+  s.poster = el(c, `<div class="card" style="left:170px;top:230px;width:520px;height:640px;border-radius:32px;text-align:center">
+    <div style="height:150px;background:linear-gradient(135deg,#FF8FAB,#FF3560);color:#fff;padding-top:34px"><div style="font-size:24px;font-weight:600;opacity:.9">CNV Shop</div><div style="font-size:40px;font-weight:800;letter-spacing:-.02em">Quét để nhận ưu đãi</div></div>
+    <div style="position:relative;margin:42px auto 0;width:300px;height:300px">${qrSVG()}</div>
+    <div style="margin-top:34px;font-size:24px;font-weight:600;color:var(--muted)">Mở Zalo · Quét mã</div></div>`);
+  s.scan = el(s.poster, `<div class="a" style="left:110px;width:300px;height:6px;border-radius:3px;background:var(--hot);box-shadow:0 0 24px 6px rgba(255,53,96,.45)"></div>`);
+  s.ph = phone(c, 850, 130, 410, 850, `<div class="ui" style="position:absolute;inset:0;background:#F4F5F7">
+     <div style="height:130px;background:linear-gradient(135deg,#FF8FAB,#FF3560);color:#fff;padding:62px 26px 0;font-size:28px;font-weight:800">CNV Shop</div>
+     <div style="margin:24px;height:190px;border-radius:20px;background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.06);padding:22px;font-size:22px;color:#333"><b style="font-size:26px">Xin chào!</b><div style="margin-top:14px;height:16px;width:80%;border-radius:8px;background:#EEF0F3"></div><div style="margin-top:12px;height:16px;width:60%;border-radius:8px;background:#EEF0F3"></div><div style="margin-top:12px;height:16px;width:70%;border-radius:8px;background:#EEF0F3"></div></div>
+     <div style="margin:0 24px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px">${[...Array(8)].map(() => '<div style="height:74px;border-radius:18px;background:#fff"></div>').join('')}</div>
+     <div class="sheet" style="position:absolute;left:0;right:0;bottom:0;height:420px;background:#fff;border-radius:28px 28px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.15);padding:30px 28px;text-align:center">
+       <div style="width:70px;height:70px;margin:0 auto;border-radius:20px;background:var(--zalo);color:#fff;font-weight:800;font-size:22px;line-height:70px">Zalo</div>
+       <div style="margin-top:20px;font-size:25px;font-weight:800;color:#1E2633;line-height:1.3">CNV Shop muốn truy cập<br>số điện thoại của bạn</div>
+       <div style="margin-top:12px;font-size:19px;color:#6B7686">Để kích hoạt thẻ thành viên</div>
+       <div class="allow" style="margin:26px auto 0;height:66px;border-radius:16px;background:var(--zalo);color:#fff;font-size:24px;font-weight:800;line-height:66px">Cho phép</div></div>
+     <div class="ok" style="position:absolute;left:24px;right:24px;top:330px;height:300px;border-radius:26px;background:#fff;box-shadow:0 20px 50px rgba(0,0,0,.18);text-align:center;padding-top:40px">
+       <div style="width:96px;height:96px;margin:0 auto;border-radius:50%;background:#22C55E;color:#fff;display:flex;align-items:center;justify-content:center"><svg width="54" height="54" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+       <div style="margin-top:22px;font-size:27px;font-weight:800;color:#1E2633">Kích hoạt thành công</div>
+       <div style="margin-top:8px;font-size:21px;color:#6B7686">Bạn đã là thành viên CNV Shop</div></div></div>`);
+  s.ripple = el(c, `<div class="a" style="width:120px;height:120px;border-radius:50%;border:4px solid rgba(0,104,255,.6)"></div>`);
+  s.h1 = el(s.hud, `<div class="a disp" style="left:1370px;top:330px;width:560px;font-size:78px;color:var(--navy)">${words('Quét QR.')}</div>`);
+  s.h2 = el(s.hud, `<div class="a disp" style="left:1370px;top:420px;width:560px;font-size:78px;color:var(--hot)">${words('Là thành viên.')}</div>`);
+  s.nots = ['Không tải app', 'Không OTP', 'Không điền form'].map((t, i) => el(s.hud, `<div class="a" style="left:1374px;top:${560 + i * 70}px;font-size:36px;font-weight:600;color:var(--muted)"><span class="mask"><span>${t}</span></span><svg class="a" style="left:-6px;top:22px;overflow:visible" width="10" height="10"><path d="M0,0 L${[280, 210, 300][i]},0" stroke="#FF3560" stroke-width="5" stroke-linecap="round" pathLength="1" stroke-dasharray="1"/></svg></div>`));
+}, (s, b) => {
+  riseIn(s.poster, 28.3, 160);
+  const sc = ramp(29.2, 31, x => x); s.scan.style.top = f2(192 + 290 * (sc < .5 ? sc * 2 : 2 - sc * 2)) + 'px'; s.scan.style.visibility = b > 29.2 && b < 31.1 ? 'visible' : 'hidden';
+  const pk = sp(30.4, 1.5, .84); s.ph.style.transform = `translateY(${f2((1 - pk) * 900)}px)`;
+  const sheet = s.ph.querySelector('.sheet'), ok = s.ph.querySelector('.ok');
+  sheet.style.transform = `translateY(${f2((1 - sp(31.4, 1.8, .85)) * 440 + sp(33.4, 1.8, .9) * 440)}px)`;
+  const tap = 32.8; s.ph.querySelector('.allow').style.transform = `scale(${f4(1 - .06 * Math.sin(clamp((b - tap) / .6) * Math.PI))})`;
+  const rk = clamp((b - tap) / 1.2); place(s.ripple, [1055 - 60 * (1 + rk * 1.5), 150 + 850 - 12 - 110 - 60 * (1 + rk * 1.5), 120 * (1 + rk * 1.5), 120 * (1 + rk * 1.5)]); s.ripple.style.opacity = f2(b > tap && b < tap + 1.2 ? 1 - rk : 0);
+  popK(ok, 33.6);
+  wIn(s.h1, 29, .12); wIn(s.h2, 29.5, .12);
+  s.nots.forEach((n, i) => { wIn(n, 30.6 + i * .3); n.querySelector('path').style.strokeDashoffset = f4(1 - VP.eOut(ramp(32.6 + i * .3, 33.4 + i * .3, x => x))); });
+});
+
+/* 5 · AUTOMATION — flow builds itself, ZNS lands in Zalo, name personalises (36–52) — rebuilt from cnv.vn Automation mockup */
+const N1 = [110, 420, 560, 330], N2 = [720, 660, 580, 270], PH5 = [1400, 150, 420, 860];
+scene('auto', 36, 52.02, '#F6F7FA', 'zoom', (c, s) => {
+  el(c, `<div class="a" style="inset:0;background-image:radial-gradient(#D5DAE3 1.6px,transparent 1.6px);background-size:28px 28px"></div>`);
+  s.bar = el(c, `<div class="card ui" style="left:110px;top:250px;width:1200px;height:100px;border-radius:18px;display:flex;align-items:center;gap:18px;padding:0 30px;font-size:27px;font-weight:700;color:#1E2633">
+     <svg width="30" height="30" viewBox="0 0 24 24"><path d="M5 19c1-4 3-7 7-10l3 3c-3 4-6 6-10 7zm9-12 3-3c2 0 3 1 3 3l-3 3z" fill="#2F6BFF"/></svg>Chiến dịch marketing
+     <span style="height:38px;padding:0 16px;border-radius:999px;background:#5B9BFF;color:#fff;font-size:19px;font-weight:600;display:flex;align-items:center">Name tag</span>
+     <span style="margin-left:auto;font-size:19px;font-weight:500;color:#6B7686">Cập nhật lần cuối: vừa xong</span></div>`);
+  s.svg = el(c, `<svg class="a" style="left:0;top:0;overflow:visible" width="${W}" height="${H}">
+     <path id="p1" d="M${N1[0] + N1[2] + 19},${N1[1] + N1[3] - 31} C ${N1[0] + N1[2] + 110},${N1[1] + N1[3] - 31} ${N2[0] - 110},${N2[1] + 33} ${N2[0]},${N2[1] + 33}" fill="none" stroke="#2F6BFF" stroke-width="3" pathLength="1" stroke-dasharray="1"/>
+     <path id="p2" d="M${N2[0] + N2[2] + 19},${N2[1] + N2[3] - 31} C ${N2[0] + N2[2] + 120},${N2[1] + N2[3] - 31} ${PH5[0] - 160},${PH5[1] + 470} ${PH5[0] - 10},${PH5[1] + 470}" fill="none" stroke="#FF3560" stroke-width="3" stroke-dasharray="10 12"/>
+     <g id="dots">${[...Array(6)].map(() => '<circle r="9" fill="#2F6BFF"/>').join('')}</g></svg>`);
+  s.n1 = el(c, `<div class="node" style="left:${N1[0]}px;top:${N1[1]}px;width:${N1[2]}px;height:${N1[3]}px"><div class="hd"><span style="width:40px;height:40px;border-radius:50%;background:#2F6BFF;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z" fill="#fff"/></svg></span>Tự động kích hoạt khi…</div>
+     <div class="bd"><b>Khách hàng</b> thỏa điều kiện của<br><b>Tuỳ chọn nâng cao</b><br>Nguồn <b>tất cả</b><br>Điều kiện <b>hạng thành viên là Gold</b></div><div class="ft">Sau đó</div><div class="plus" style="right:-19px;bottom:12px">+</div></div>`);
+  s.n2 = el(c, `<div class="node" style="left:${N2[0]}px;top:${N2[1]}px;width:${N2[2]}px;height:${N2[3]}px;box-shadow:0 18px 50px rgba(30,38,51,.12),0 0 0 3px #2F6BFF"><div class="hd"><span style="position:absolute;left:-19px;top:14px;width:38px;height:38px;border-radius:50%;background:#2F6BFF"></span>Gửi tin nhắn ZNS khi…<span style="margin-left:auto;width:44px;height:30px;border-radius:8px;border:2px solid #0068FF;color:#0068FF;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center">Zalo</span></div>
+     <div class="bd">OA gửi <b>Công nghệ Việt</b><br>Mẫu tin nhắn <b>Thông báo Khuyến Mãi Hot Sale Cuối Tuần</b></div><div class="ft">Sau đó</div><div class="plus" style="right:-19px;bottom:12px">+</div></div>`);
+  s.ph = phone(c, PH5[0], PH5[1], PH5[2], PH5[3], `<div class="ui" style="position:absolute;inset:0;background:#E5E9EF">
+     <div style="height:128px;background:linear-gradient(180deg,#0068FF,#1C8BFF);color:#fff;padding:18px 26px 0"><div style="font-size:18px;font-weight:700">9:41</div><div style="margin-top:22px;font-size:27px;font-weight:800">‹&nbsp; CNV Shop <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#FFD34D;vertical-align:middle"></span></div><div style="font-size:16px;opacity:.85;margin-left:34px">Tài khoản OA</div></div>
+     <div class="msg" style="position:absolute;left:22px;right:22px;top:160px;border-radius:18px;background:#fff;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.08)">
+       <div style="padding:12px 16px;font-size:16px;font-weight:800;color:#1E2633">TIN TRUYỀN THÔNG</div>
+       <div style="height:190px;margin:0 12px;border-radius:12px;background:linear-gradient(135deg,#FF8FAB,#FF3560);color:#fff;padding:24px;position:relative;overflow:hidden"><div style="font-size:22px;font-weight:700">HOT SALE CUỐI TUẦN</div><div style="font-family:'Be Vietnam Pro';font-size:92px;font-weight:800;line-height:1;letter-spacing:-.04em">-30%</div><div style="position:absolute;right:-30px;bottom:-40px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.18)"></div></div>
+       <div style="padding:16px 18px 6px;font-size:21px;line-height:1.5;color:#333">Chào <span class="nm" style="display:inline-block;vertical-align:bottom;height:32px;overflow:hidden;position:relative"><span class="nmi" style="display:block"><span style="display:block;height:32px"><span style="background:#2F6BFF;color:#fff;border-radius:6px;padding:1px 8px;font-size:18px">{{customer_name}}</span></span><span style="display:block;height:32px;font-weight:800;color:#1E2633;white-space:nowrap">Phú Nguyễn</span></span></span>, ưu đãi riêng cho <b>thành viên Gold</b> đã sẵn sàng!</div>
+       <div class="cta" style="margin:10px 12px 14px;height:58px;border-radius:12px;border:1.5px solid #EEE;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:18px;font-weight:800;color:#1E2633"><span style="width:32px;height:32px;border-radius:50%;background:#FF3560"></span>NHẬN ƯU ĐÃI NGAY<span style="margin-left:auto">›</span></div></div></div>`);
+  s.env = el(c, `<div class="a" style="width:84px;height:84px;border-radius:22px;background:linear-gradient(135deg,#FF8FAB,#FF3560);box-shadow:0 12px 30px rgba(255,53,96,.45);color:#fff;font-weight:800;font-size:22px;display:flex;align-items:center;justify-content:center">ZNS</div>`);
+  s.h = el(s.hud, `<div class="a disp" style="left:110px;top:100px;font-size:68px;color:var(--navy)">${words('Tự động hoá theo')} <span style="color:var(--hot)">${words('hành vi mua hàng')}</span></div>`);
+}, (s, b) => {
+  wIn(s.h, 36.8, .1);
+  riseIn(s.bar, 37.2, 60, SPR.SNAP);
+  popK(s.n1, 38.2, SPR.POP, '0% 50%'); popK(s.n2, 41.3, SPR.POP, '0% 50%');
+  const p1 = s.svg.querySelector('#p1'), p2 = s.svg.querySelector('#p2');
+  p1.style.strokeDashoffset = f4(1 - VP.eOut(ramp(39.8, 41.4, x => x)));
+  const p2k = VP.eOut(ramp(43.2, 44.6, x => x)); p2.style.clipPath = `inset(0 ${f2((1 - p2k) * 100)}% 0 0)`; p2.style.strokeDashoffset = f2(-b * 22);
+  // pulses along the connectors
+  const L1 = p1.getTotalLength(), L2 = p2.getTotalLength(), dots = s.svg.querySelectorAll('#dots circle');
+  dots.forEach((d, i) => { const ph = ((b - 41.6) * .55 + i / 3) % 1; const on2 = i >= 3; const path = on2 ? p2 : p1, L = on2 ? L2 : L1, st = on2 ? 44.6 : 41.6;
+    if (b < st) { d.setAttribute('r', 0); return; } const pt = path.getPointAtLength(L * ph); d.setAttribute('cx', f2(pt.x)); d.setAttribute('cy', f2(pt.y)); d.setAttribute('r', f2(9 * Math.sin(ph * Math.PI))); d.setAttribute('fill', on2 ? '#FF3560' : '#2F6BFF'); });
+  // phone rises, ZNS envelope flies along p2 into the chat
+  const pk = sp(43.6, 1.4, .84); s.ph.style.transform = `translateY(${f2((1 - pk) * 1000)}px)`;
+  const ek = ease(ramp(45.2, 46.4, x => x)); const ept = p2.getPointAtLength(L2 * ek);
+  place(s.env, [ept.x - 42, ept.y - 42, 84, 84, 22]); s.env.style.visibility = b > 45.2 && b < 46.45 ? 'visible' : 'hidden'; s.env.style.transform = `scale(${f4(1 - .3 * ek)})`;
+  const msg = s.ph.querySelector('.msg'); const mk = sp(46.4, 2.2, .66); msg.style.transformOrigin = '0% 50%'; msg.style.transform = `scale(${f4(Math.max(0, mk))})`; msg.style.visibility = mk > .002 ? 'visible' : 'hidden';
+  // personalisation: {{customer_name}} rolls to the real name
+  const nm = s.ph.querySelector('.nm'); const nk = sp(48.6, ...SPR.SNAP);
+  s.ph.querySelector('.nmi').style.transform = `translateY(${f2(-32 * nk)}px)`;
+  nm.style.width = f2(lerp(VP.measure('{{customer_name}}', "400 18px 'Nunito Sans'") + 18, VP.measure('Phú Nguyễn', "800 21px 'Nunito Sans'") + 2, nk)) + 'px';
+  const cta = s.ph.querySelector('.cta'); cta.style.boxShadow = `0 0 0 ${f2(3 * sp(49.8, ...SPR.POP))}px rgba(255,53,96,${f2(.8 * (1 - ramp(50.6, 52, x => x)))})`;
+  // gentle camera drift, then push toward the phone
+  const z = track([[36, 1], [45, 1.04, 1, .9], [48, 1.1, 1.2, .9]]); VP.camera(s.cam, z, 1610, 600);
+});
+
+/* 6 · CDP — every channel into one 360° customer profile (52–64, music breakdown) */
+const C6 = [960, 600];
+const SRC = [['Zalo OA', 'OA', '#0068FF', 250, 330], ['Mini App', 'MA', '#FF3560', 250, 600], ['POS / CRM', 'POS', '#7C5CFF', 250, 870], ['Thanh toán', '₫', '#16A34A', 1670, 330], ['Vận chuyển', 'VC', '#F59E0B', 1670, 600], ['Website', 'WEB', '#06B6D4', 1670, 870]];
+scene('cdp', 52, 64.02, '#1B2230', 'rise', (c, s) => {
+  el(c, `<div class="a" style="left:360px;top:0;width:1200px;height:1200px;background:radial-gradient(closest-side,rgba(255,143,171,.28),rgba(255,143,171,0))"></div>`);
+  s.svg = el(c, `<svg class="a" style="left:0;top:0;overflow:visible" width="${W}" height="${H}">${SRC.map((q, i) => { const x0 = q[3] < 960 ? q[3] + 150 : q[3] - 150; return `<path class="ln" d="M${x0},${q[4]} C ${lerp(x0, C6[0], .5)},${q[4]} ${lerp(x0, C6[0], .5)},${C6[1]} ${C6[0]},${C6[1]}" fill="none" stroke="rgba(255,143,171,.45)" stroke-width="2.5" pathLength="1" stroke-dasharray="1"/>`; }).join('')}
+     ${[...Array(18)].map(() => '<circle class="pt" r="6" fill="#FF8FAB"/>').join('')}</svg>`);
+  s.srcs = SRC.map(q => { const e = el(c, `<div class="src"><i style="background:${q[2]}">${q[1]}</i>${q[0]}</div>`); return e; });
+  s.core = el(c, `<div class="a" style="border-radius:50%;background:#fff;box-shadow:0 0 0 14px rgba(255,143,171,.18),0 0 0 30px rgba(255,143,171,.08),0 30px 80px rgba(0,0,0,.4);overflow:hidden"></div>`);
+  s.sym = el(s.core, `<img class="a" src="assets/symbol.png" style="left:50%;top:50%;width:120px;transform:translate(-50%,-50%)">`);
+  s.prof = el(s.core, `<div class="a ui" style="left:0;top:0;width:640px;height:450px;padding:34px 38px;color:#1E2633">
+     <div style="display:flex;align-items:center;gap:22px"><div style="width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#FF8FAB,#FF3560);color:#fff;font-size:36px;font-weight:800;display:flex;align-items:center;justify-content:center">PN</div>
+     <div><div style="font-size:34px;font-weight:800">Phú Nguyễn</div><div style="font-size:22px;color:#B7791F;font-weight:700">Thành viên Gold · 1.243 điểm</div></div></div>
+     <div class="rows" style="margin-top:26px;font-size:22px;line-height:1.95;color:#444">
+       <div style="display:flex"><span>Đơn gần nhất</span><b style="margin-left:auto;color:#1E2633">2 ngày trước</b></div>
+       <div style="display:flex;border-top:1px solid #EEF0F3"><span>Tổng chi tiêu</span><b style="margin-left:auto;color:#1E2633">3.250.000 đ</b></div>
+       <div style="display:flex;border-top:1px solid #EEF0F3"><span>Kênh tương tác</span><b style="margin-left:auto;color:#1E2633">Zalo OA · Mini App · POS</b></div></div>
+     <div class="tags" style="margin-top:20px"><span class="tag" style="background:#FFE6EC;color:#E11D48">Thích khuyến mãi</span><span class="tag" style="background:#E8F0FF;color:#2F6BFF">Mua cuối tuần</span><span class="tag" style="background:#E7F8EE;color:#16A34A">Đã quan tâm OA</span></div></div>`);
+  s.h = el(s.hud, `<div class="a disp" style="left:0;right:0;top:92px;text-align:center;font-size:72px;color:#fff">${words('Một hồ sơ khách hàng.')} <span style="color:#FF8FAB">${words('Mọi kênh.')}</span></div>`);
+  s.sub = el(s.hud, `<div class="a" style="left:0;right:0;top:190px;text-align:center;font-size:30px;font-weight:500;color:rgba(255,255,255,.72)">${words('CDP đồng nhất dữ liệu đa kênh — hiểu hành vi theo thời gian thực')}</div>`);
+}, (s, b) => {
+  wIn(s.h, 52.8, .1); wIn(s.sub, 54, .05);
+  s.srcs.forEach((e, i) => { const q = SRC[i], k = sp(53.2 + i * .22, ...SPR.POP); e.style.left = f2(q[3] < 960 ? q[3] - 150 : q[3] - 150) + 'px'; e.style.top = f2(q[4] - 37) + 'px'; e.style.width = '300px'; e.style.transform = `scale(${f4(Math.max(0, k))})`; e.style.visibility = k > .002 ? 'visible' : 'hidden'; });
+  s.svg.querySelectorAll('.ln').forEach((l, i) => l.style.strokeDashoffset = f4(1 - VP.eOut(ramp(54 + i * .15, 55.6 + i * .15, x => x))));
+  const lns = s.svg.querySelectorAll('.ln');
+  s.svg.querySelectorAll('.pt').forEach((d, i) => { const li = i % 6, ph = ((b - 55.6) * .42 + Math.floor(i / 6) / 3) % 1; if (b < 55.6) { d.setAttribute('r', 0); return; } const L = lns[li].getTotalLength(); const pt = lns[li].getPointAtLength(L * ph); d.setAttribute('cx', f2(pt.x)); d.setAttribute('cy', f2(pt.y)); d.setAttribute('r', f2(6 * Math.sin(ph * Math.PI))); });
+  // core circle → profile card (shared-element morph)
+  const ck = sp(53, ...SPR.POP), mk = sp(57.2, 1.5, .8);
+  const r0 = [C6[0] - 110, C6[1] - 110, 220, 220, 110], r1 = [C6[0] - 320, C6[1] - 225, 640, 450, 28];
+  const r = r0.map((v, i) => lerp(v, r1[i], mk)), cs = Math.max(0, ck);
+  place(s.core, [r[0] + r[2] * (1 - cs) / 2, r[1] + r[3] * (1 - cs) / 2, r[2] * cs, r[3] * cs, r[4] * cs]);
+  s.sym.style.visibility = mk < .35 ? 'visible' : 'hidden'; s.sym.style.width = f2(120 * (1 + .06 * Math.sin(b * 3.2)) * cs) + 'px';
+  s.prof.style.visibility = mk > .35 ? 'visible' : 'hidden'; s.prof.style.transform = `translateY(${f2((1 - VP.eOut(ramp(57.6, 59, x => x))) * 30)}px)`;
+  s.prof.querySelectorAll('.rows>div').forEach((d, i) => { const k = sp(58.2 + i * .35, ...SPR.SNAP); d.style.transform = `translateX(${f2((1 - k) * 40)}px)`; d.style.opacity = f2(clamp(k * 1.2)); });
+  s.prof.querySelectorAll('.tag').forEach((t, i) => popK(t, 59.6 + i * .3, SPR.POP, '0% 50%'));
+});
+
+/* 7 · BUILD-UP (64–68) */
+scene('build', 64, 68.02, '#FFFFFF', 'push', (c, s) => {
+  s.t = el(c, `<div class="a disp" style="left:0;right:0;top:360px;text-align:center;font-size:120px;color:var(--navy)">${words('Và để khách')}<br><span style="color:var(--hot)">${words('quay lại mỗi ngày…')}</span></div>`);
+}, (s, b) => { wIn(s.t, 64.4, .22); s.cam.style.transformOrigin = '960px 540px'; s.cam.style.transform = `scale(${f4(1 + .08 * ramp(64, 68, x => x * x))})`; });
+
+/* 8 · DROP — real gamification screens wall (68–76) */
+const G = [['gifts', 635, 473], ['wheel', 327, 314], ['planes', 635, 474], ['voucher', 327, 313], ['bamboo', 410, 532], ['orange', 635, 470], ['mix', 410, 534], ['quiz', 411, 339], ['hotpot', 410, 338]];
+scene('games', 68, 76.02, 'linear-gradient(135deg,#FF6A8E,#FF3560)', 'cut', (c, s) => {
+  s.wall = el(c, `<div class="a" style="left:-400px;top:-300px;width:2720px;height:1680px;transform-origin:1360px 840px"></div>`);
+  s.rows = [0, 1, 2, 3].map(r => { const row = el(s.wall, `<div class="a" style="left:0;top:${r * 420}px;height:390px;width:6000px"></div>`); let x = 0; for (let k = 0; k < 14; k++) { const g = G[(k * 2 + r * 3) % G.length], w = Math.round(390 * g[1] / g[2]); el(row, `<div class="tile" style="left:${x}px;top:0;width:${w}px;height:390px"><img src="assets/game-${g[0]}.jpg"></div>`); x += w + 30; } return row; });
+  s.card = el(s.hud, `<div class="card" style="left:520px;top:350px;width:880px;height:380px;border-radius:40px;text-align:center;padding-top:58px">
+    <div class="disp" style="font-size:88px;color:var(--navy)">Gamification</div><div class="disp" style="font-size:60px;color:var(--hot);margin-top:6px">ngay trên Zalo</div>
+    <div style="margin-top:26px;font-size:28px;font-weight:500;color:var(--muted)">Mỗi lượt chơi = 1 lượt quan tâm OA + data thật</div></div>`);
+}, (s, b) => {
+  const punch = 1 + .35 * (1 - sp(68, 1.3, .7));
+  s.wall.style.transform = `rotate(-8deg) scale(${f4(punch)})`;
+  s.rows.forEach((r, i) => r.style.transform = `translateX(${f2((i % 2 ? -1 : 1) * (b - 68) * 42 - (i % 2 ? 300 : 900))}px)`);
+  popK(s.card, 68.9, [2.2, .6]);
+});
+
+/* 9 · AFFILIATE — real mobile screens (76–84) */
+scene('aff', 76, 84.02, 'linear-gradient(180deg,#FFF6F8,#FFE3EA)', 'push', (c, s) => {
+  s.h = el(s.hud, `<div class="a disp" style="left:0;right:0;top:64px;text-align:center;font-size:76px;color:var(--navy)">${words('Biến khách hàng thành')} <span style="color:var(--hot)">${words('cộng tác viên')}</span></div>`);
+  s.sub = el(s.hud, `<div class="a" style="left:0;right:0;top:168px;text-align:center;font-size:31px;font-weight:500;color:var(--muted)">${words('Chia sẻ 1 chạm trên Zalo · Hoa hồng luỹ tiến · Rút tiền về 49 ngân hàng')}</div>`);
+  s.phs = [['aff-product', 470], ['aff-share', 785], ['aff-report', 1100]].map(([f, x], i) => phone(c, x, i === 1 ? 262 : 300, 350, 734, `<img src="assets/${f}.png">`));
+  s.c1 = el(c, `<div class="pill" style="left:1380px;top:520px;height:78px;padding:0 30px;background:#fff;color:#16A34A;font-size:30px;box-shadow:0 16px 40px rgba(56,71,91,.16)">+268.900 đ hoa hồng</div>`);
+  s.c2 = el(c, `<div class="pill" style="left:170px;top:430px;height:78px;padding:0 30px;background:var(--hot);color:#fff;font-size:30px;box-shadow:0 16px 40px rgba(255,53,96,.35)">F2 vừa mua hàng</div>`);
+}, (s, b) => {
+  wIn(s.h, 76.6, .09); wIn(s.sub, 77.4, .04);
+  s.phs.forEach((p, i) => { const k = sp(76.8 + [.3, 0, .6][i], 1.5, .8); p.style.transform = `translateY(${f2((1 - k) * 900 + Math.sin((b - 76) * .9 + i) * 6)}px) rotate(${f2([-4, 0, 4][i] * clamp(k))}deg)`; });
+  popK(s.c1, 80.2, SPR.POP, '0% 50%'); popK(s.c2, 81.2, SPR.POP, '100% 50%');
+  s.c1.style.transform += ` translateY(${f2(Math.sin((b - 80) * 1.4) * 6)}px)`;
+});
+
+/* 10 · REPORT — real dashboard, zoom into sends (84–90) */
+const WIN = [210, 205, 1500, 44 + 772], KPI = [236, 249 + 41, 600, 243];
+scene('report', 84, 90.02, '#F3F5F9', 'zoom', (c, s) => {
+  s.win = el(c, `<div class="card" style="left:${WIN[0]}px;top:${WIN[1]}px;width:${WIN[2]}px;height:${WIN[3]}px;border-radius:20px"><div style="height:44px;background:#EEF1F5;border-bottom:1px solid #E1E5EB;position:relative">${['#FF5F57', '#FEBC2E', '#28C840'].map((c, i) => `<span style="position:absolute;top:15px;left:${18 + i * 22}px;width:13px;height:13px;border-radius:50%;background:${c}"></span>`).join('')}</div><img src="assets/dash.png" style="display:block;width:${WIN[2]}px"></div>`);
+  s.spot = el(c, `<div class="a" style="border:4px solid var(--hot);border-radius:16px;box-shadow:0 0 0 4000px rgba(30,38,51,.45)"></div>`);
+  s.h = el(s.hud, `<div class="a" style="left:0;right:0;top:0;height:170px;background:linear-gradient(180deg,rgba(243,245,249,1) 60%,rgba(243,245,249,0))"></div>`);
+  s.t = el(s.hud, `<div class="a disp" style="left:0;right:0;top:62px;text-align:center;font-size:70px;color:var(--navy)">${words('Đo được từng tin nhắn,')} <span style="color:var(--hot)">${words('từng khách hàng')}</span></div>`);
+}, (s, b) => {
+  wIn(s.t, 84.6, .08);
+  const z = track([[84, 1], [86.2, 1.55, 1.2, .88]]); const fx = KPI[0] + KPI[2] / 2 + 60, fy = KPI[1] + KPI[3] / 2 + 60;
+  VP.camera(s.cam, z, fx, fy);
+  const sk = sp(87, 1.6, .9); s.spot.style.opacity = f2(clamp(sk)); place(s.spot, [KPI[0] - 8, KPI[1] - 8, KPI[2] + 16, KPI[3] + 16, 16]);
+});
+
+/* 11 · CLOSE — proof, logo, CTA (90–100) */
+scene('close', 90, 100.5, 'radial-gradient(1400px 900px at 50% 45%,#FFFFFF 0%,#FFF2F5 65%,#FFE3EA 100%)', 'iris', (c, s) => {
+  s.band = el(c, `<div class="a" style="left:0;top:690px;width:6000px;height:330px"></div>`);
+  let x = 0; [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 18, 3, 4, 5, 6].forEach(i => { el(s.band, `<img class="a" src="assets/wall-${i}.png" style="left:${x}px;top:0;height:300px;border-radius:26px;box-shadow:0 14px 34px rgba(255,53,96,.14)">`); x += 330; });
+  s.n = rollBox(c, 0, 150, W, 300, `<span class="disp" style="font-size:250px;color:var(--navy)"><span class="num">3.000</span><span style="color:var(--hot)">+</span></span>`, 'text-align:center');
+  s.n.firstElementChild.style.textAlign = 'center';
+  s.nl = rollBox(c, 0, 440, W, 80, `<span style="font-size:48px;font-weight:600;color:var(--muted)">doanh nghiệp đang đồng hành cùng CNV</span>`);
+  s.nl.firstElementChild.style.textAlign = 'center';
+  s.p1 = rollBox(c, 0, 220, W, 150, `<span class="disp" style="font-size:108px;color:var(--navy)">Đối tác cấp cao <span style="color:var(--hot)">đầu tiên</span></span>`);
+  s.p2 = rollBox(c, 0, 370, W, 90, `<span style="font-size:54px;font-weight:600;color:var(--muted)">của Zalo Mini App tại Việt Nam</span>`);
+  s.p1.firstElementChild.style.textAlign = s.p2.firstElementChild.style.textAlign = 'center';
+  s.logo = el(c, `<img class="a" src="assets/logo.png" style="left:${(W - 860) / 2}px;top:300px;width:860px">`);
+  s.cta = el(c, `<div class="pill" style="left:${(W - 640) / 2}px;top:640px;width:640px;height:110px;background:var(--hot);color:#fff;font-size:46px;font-weight:800;box-shadow:0 20px 50px rgba(255,53,96,.4)">Đăng ký tư vấn <span style="font-weight:500;opacity:.9">·</span> cnv.vn</div>`);
+  s.hot = el(c, `<div class="a" style="left:0;right:0;top:790px;text-align:center;font-size:34px;font-weight:600;color:var(--navy)">${words('Hotline 1900 636 400')}</div>`);
+}, (s, b) => {
+  const bk = sp(90.4, 1.2, .9), bo = sp(94.2, 1.5, .9);
+  s.band.style.transform = `translate(${f2(-(b - 90) * 60)}px,${f2((1 - bk) * 400 + bo * 450)}px)`;
+  rollK(s.n, 90.6, 92.6); rollK(s.nl, 91, 92.7);
+  s.n.querySelector('.num').textContent = fmtVN(3000 * VP.eOutQuint(ramp(90.6, 92.2, x => x)));
+  rollK(s.p1, 92.8, 94.4); rollK(s.p2, 93.1, 94.5);
+  const lk = sp(94.6, 1.6, .7); s.logo.style.transform = `scale(${f4(lerp(.82, 1, clamp(lk)) + (lk - clamp(lk)) * .2)})`; s.logo.style.clipPath = `inset(0 ${f2((1 - VP.eOutQuint(ramp(94.6, 95.8, x => x))) * 100)}% 0 0)`;
+  popK(s.cta, 96, [2.2, .62]); wIn(s.hot, 96.8, .1);
+  s.cta.style.boxShadow = `0 20px 50px rgba(255,53,96,${f2(.4 + .15 * Math.sin(b * 1.6))})`;
+});
+
+/* keep the outgoing scene alive until the incoming transition has covered the frame */
+S.forEach((s, i) => { const nx = S[i + 1]; if (nx && nx.in !== 'cut' && nx.in !== 'none') s.end = nx.start + 2.6; });
+
+/* ============ transitions ============ */
+function trans(s, b) {
+  const k = (s.in === 'none' || s.in === 'cut') ? 1 : sp(s.start, 1.5, .86); let tf = '', clip = '';
+  switch (s.in) {
+    case 'rise': tf = `translateY(${f2((1 - k) * H)}px)`; break;
+    case 'push': tf = `translateX(${f2((1 - k) * W)}px)`; break;
+    case 'zoom': tf = `scale(${f4(lerp(.72, 1, k))})`; clip = `inset(${f2((1 - k) * H / 2)}px ${f2((1 - k) * W / 2)}px round ${f2((1 - k) * 60)}px)`; break;
+    case 'iris': clip = `circle(${(Math.hypot(W, H) / 2 * clamp(k * 1.02)).toFixed(1)}px at 50% 50%)`; break;
+  }
+  const nx = S[S.indexOf(s) + 1]; if (nx && nx.in !== 'none' && nx.in !== 'cut' && b >= nx.start) { const kx = sp(nx.start, 1.5, .86);
+    tf += { rise: ` translateY(${f2(-kx * H * .22)}px)`, push: ` translateX(${f2(-kx * W * .3)}px)`, zoom: ` scale(${f4(lerp(1, 1.15, kx))})`, iris: ` scale(${f4(lerp(1, .95, kx))})` }[nx.in] || ''; }
+  s.root.style.transform = tf; s.root.style.transformOrigin = '960px 540px'; s.root.style.clipPath = clip;
+}
+
+/* ============ frame ============ */
+const DUR = 100 * B;
+function frame(t) {
+  const b = VP.at(t);
+  S.forEach(s => { const on = b >= s.start - .01 && b < s.end; s.root.style.display = on ? 'block' : 'none'; if (!on) return; trans(s, b); s.anim(s, b); });
+}
+function cues() {
+  const c = [];
+  S.forEach(s => { if (s.in !== 'none' && s.in !== 'cut') c.push({ beat: s.start, type: s.in === 'zoom' || s.in === 'iris' ? 'swoosh-deep' : 'swoosh', gain: -21 }); });
+  c.push({ beat: 9.4, type: 'swoosh-deep', gain: -18 }, { beat: 10, type: 'hit', gain: -17 }, { beat: .35, type: 'pop', gain: -22 });
+  c.push({ beat: 23.6, type: 'coin', gain: -21 }, { beat: 32.8, type: 'click', gain: -20 }, { beat: 33.6, type: 'unlock', gain: -21 });
+  c.push({ beat: 46.4, type: 'notify', gain: -18 }, { beat: 48.6, type: 'tick', gain: -22 });
+  c.push({ beat: 68, type: 'rise', gain: -19, align: 'peak' }, { beat: 68, type: 'boom', gain: -14 });
+  c.push({ beat: 80.2, type: 'coin', gain: -21 }, { beat: 94.6, type: 'hit', gain: -15 });
+  return c;
+}
+VP.boot({ seek: frame, dur: DUR, cues, fonts: ["800 100px 'Be Vietnam Pro'", "600 40px 'Be Vietnam Pro'", "500 40px 'Be Vietnam Pro'", "700 20px 'Nunito Sans'", "400 20px 'Nunito Sans'", "800 20px 'Nunito Sans'"] });
+window.SIZE = [W, H]; window.B = B;
+</script></body></html>

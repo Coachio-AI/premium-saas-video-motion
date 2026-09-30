@@ -66,3 +66,24 @@ before the next transition. The cursor is drawn outside the camera layer and map
 ## Loop
 If the film loops, the last frame must equal frame 0: end with the same element, same axis value,
 same camera. Use an eased ramp (not a spring) into the final value so it lands exactly at DUR.
+
+## Micro-loop cycle (UI loops)
+`const S = VP.cycle(t, { F: 2.2, H: 4.4, R: 1.4, loop: 8, offset })` gives `S.phase` ('before'|'fwd'|'hold'|'ret'),
+`S.p` (eased 0→1 forward, 1 in hold, 1→0 on return), `S.h` (0→1 across the hold), `S.ret`, `S.T` (seconds since start,
+frozen during ret). Keep one thing alive in the hold (progress bar, cursor, lens, pulses). Stagger tiles with
+`offset = i * 0.12`. With F+H+R = loop the seam is exact (return ends at p = 0 = forward start).
+Poster frame for thumbnails: draw with `{phase:'hold', p:1, h:.3}` (`?poster`).
+
+## Helpers added for loops (all pure)
+- `VP.stagger(p, i, n, spread=.35, from='start'|'center'|'end')`: per-item eased progress from one master p.
+- `VP.rng(seed)`: mulberry32; call it in the same order every frame so random layouts never flicker.
+- `VP.gauss(x, c, s)`: falloff for dock magnification, spotlights, waves following a cursor.
+- `VP.measure(text, font)` / `VP.fitText(text, family, weight, maxW, size, min)`: real metrics; size to the widest state.
+- `VP.catmull(pts)` → smooth polyline; `VP.partial(poly, k)` draws a fraction; `VP.dpath(poly)` → SVG `d`.
+- `VP.quad(Q, u, v)` / `VP.plane(...)`: bilinear quads for fake 3D perspective of flat UI layers.
+- `VP.sampleText(text, font, w, h, step)`: points from a word/mark's alpha for particle logos.
+
+## SVG-string tiles
+For many small UI animations, `draw(w, h, id, S)` returns SVG markup and `seek` sets `el.innerHTML`. Rebuilding
+~2–5 k nodes per frame is fast enough, deterministic, and scales cleanly (`scale(2)` for a 1:1 single effect).
+Round numbers to 2 decimals when writing attributes. Use per-tile ids for clipPaths/gradients.

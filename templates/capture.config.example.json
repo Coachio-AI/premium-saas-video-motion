@@ -1,0 +1,24 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "out": "capture",
+  "viewports": {
+    "desktop": { "width": 1440, "height": 900, "dpr": 2 },
+    "mobile": { "width": 390, "height": 844, "dpr": 3, "mobile": true }
+  },
+  "login": {
+    "path": "/login",
+    "steps": [
+      { "fill": ["input[type=email]", "demo.student@example.com"] },
+      { "fill": ["input[type=password]", "demo-password"] },
+      { "click": "button[type=submit]" },
+      { "wait": 1500 }
+    ]
+  },
+  "mask": ["[data-private]", "input[type=email]"],
+  "shots": [
+    { "name": "home", "path": "/", "wait": "main" },
+    { "name": "book-step1", "path": "/student/book", "wait": "text=Schedule" },
+    { "name": "book-slot-selected", "path": "/student/book", "actions": [{ "click": "text=Available" }, { "wait": 400 }] },
+    { "name": "dashboard-full", "path": "/admin", "fullPage": true, "viewports": ["desktop"] }
+  ]
+}

@@ -25,7 +25,7 @@
   VP.clock = bpm => { B = 60 / bpm; VP.B = B; return B; };
   VP.at = t => { bt = t / B; VP.bt = bt; return bt; };
   VP.sp = (b0, f = 2.2, z = .72) => VP.spring((bt - b0) * B, f, z);          // spring triggered at beat b0
-  VP.ramp = (b0, b1, fn = VP.ease) => fn((bt - b0) / (b1 - b0));             // eased 0→1 between two beats
+  VP.ramp = (b0, b1, fn = VP.ease) => fn(VP.clamp((bt - b0) / (b1 - b0)));   // always clamped 0..1             // eased 0→1 between two beats
 
   /* Superposed spring track: keys [[beat, value|array, f, z], ...]. Continuous even when keys overlap. */
   VP.track = keys => {
@@ -51,7 +51,7 @@
   VP.roll = (inner, k, h) => { const y = k <= 1 ? (1 - k) * h * 1.08 : -(k - 1) * h * 1.08; inner.style.transform = `translateY(${y.toFixed(2)}px)`; };
 
   /* Camera (screen-studio zoom): scale z about focus (fx,fy) — focus stays put on screen. */
-  VP.camera = (el, z, fx, fy) => { el.style.transformOrigin = '0 0'; el.style.transform = `translate(${fx - fx * z}px,${fy - fy * z}px) scale(${z})`; };
+  VP.camera = (el, z, fx, fy) => { el.style.transformOrigin = '0 0'; el.style.transform = `translate(${(fx - fx * z).toFixed(2)}px,${(fy - fy * z).toFixed(2)}px) scale(${(+z).toFixed(4)})`; };
 
   /* Measure natural text width. IMPORTANT: clears a fixed width first — offsetWidth of an element whose
    * width you set last frame returns that width, and display:none returns 0. */
@@ -99,6 +99,41 @@
 
   /* Standard page contract every template exposes to the renderer:
    *   window.DUR (seconds), window.FPS_HINT, window.ready (Promise), window.seek(t) (async), window.CUES() -> [{beat, type, gain}] */
+
+  /* ===================== loop & UI-micro-demo helpers (v2) ===================== */
+  /* Loop cycle: before → fwd (F s, eased) → hold (H s, keep something alive) → ret (R s, reverse) → loops cleanly.
+   * Returns {phase, p (0..1 eased progress), T (s since fwd start), h (0..1 through hold), ret (0..1 through return)}. */
+  VP.cycle = (t, { F = 2.2, H = 4.4, R = 1.4, loop = 8, offset = 0 } = {}) => {
+    const L = (((t - offset) % loop) + loop) % loop;
+    if (L < F) return { phase: 'fwd', p: VP.ease(L / F), T: L, h: 0, ret: 0 };
+    if (L < F + H) return { phase: 'hold', p: 1, T: L, h: (L - F) / H, ret: 0 };
+    if (L < F + H + R) { const r = (L - F - H) / R; return { phase: 'ret', p: 1 - VP.ease(r), T: F + H, h: 1, ret: r }; }
+    return { phase: 'before', p: 0, T: 0, h: 0, ret: 0 };
+  };
+  /* Stagger inside one progress value: element i of n starts later; from 'start' | 'center' | 'end'. */
+  VP.stagger = (p, i, n, spread = .35, from = 'start', fn = VP.ease) => {
+    const c = (n - 1) / 2, d = from === 'center' ? Math.abs(i - c) / Math.max(1, c) : from === 'end' ? (n - 1 - i) / Math.max(1, n - 1) : i / Math.max(1, n - 1);
+    return fn((p - d * spread) / (1 - spread));
+  };
+  /* Deterministic RNG (mulberry32) — never Math.random() in a film. */
+  VP.rng = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+  /* Gaussian falloff — magnetic docks, lens magnification, focus pulls. */
+  VP.gauss = (x, c, s) => Math.exp(-(((x - c) / s) ** 2));
+  /* Real text metrics (fonts must be loaded). fitText shrinks the size until the line fits maxW. */
+  let _mc = null; VP.measure = (text, font) => { _mc = _mc || document.createElement('canvas').getContext('2d'); _mc.font = font; return _mc.measureText(text).width; };
+  VP.fitText = (text, family, weight, maxW, size, min = 10) => { while (size > min && VP.measure(text, `${weight} ${size}px ${family}`) > maxW) size -= .5; return size; };
+  /* Catmull-Rom through points, sampled densely; VP.partial draws the first k (0..1) of a sampled path. */
+  VP.catmull = (pts, seg = 16) => { const out = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      for (let j = 1; j <= seg; j++) { const t = j / seg, t2 = t * t, t3 = t2 * t; out.push([0, 1].map(k => .5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3))); } } return out; };
+  VP.partial = (pts, k) => { if (k <= 0) return [pts[0]]; const n = VP.clamp(k) * (pts.length - 1), i = Math.floor(n), f = n - i, part = pts.slice(0, i + 1); if (i < pts.length - 1) part.push([VP.lerp(pts[i][0], pts[i + 1][0], f), VP.lerp(pts[i][1], pts[i + 1][1], f)]); return part; };
+  VP.dpath = pts => pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' ');
+  /* Bilinear point inside a quad {TL,TR,BR,BL} — fake 3D planes toward a vanishing point without CSS 3D. */
+  VP.quad = (Q, u, v) => { const a = [VP.lerp(Q.TL[0], Q.TR[0], u), VP.lerp(Q.TL[1], Q.TR[1], u)], b = [VP.lerp(Q.BL[0], Q.BR[0], u), VP.lerp(Q.BL[1], Q.BR[1], u)]; return [VP.lerp(a[0], b[0], v), VP.lerp(a[1], b[1], v)]; };
+  VP.plane = (L, R, T, Bm, vp, k) => ({ TL: [L, T], BL: [L, Bm], TR: [R, T + (vp[1] - T) * k], BR: [R, Bm + (vp[1] - Bm) * k] });
+  /* Sample points from text/logo pixels (for particle assemblies). Returns [[x,y],...] in a w×h box. */
+  VP.sampleText = (text, font, w, h, step = 8) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, w / 2, h / 2);
+    const d = x.getImageData(0, 0, w, h).data, out = []; for (let y = 0; y < h; y += step) for (let xx = 0; xx < w; xx += step) if (d[(y * w + xx) * 4 + 3] > 128) out.push([xx, y]); return out; };
+
   VP.boot = ({ seek, dur, cues, fonts = [] }) => {
     window.DUR = dur; window.seek = async t => { t = ((t % dur) + dur) % dur; seek(t); };
     window.CUES = cues || (() => []);

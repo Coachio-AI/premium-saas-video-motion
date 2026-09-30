@@ -1,0 +1,339 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>VibeSketch AI — 60s film</title>
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Klee+One:wght@600&display=block" rel="stylesheet">
+<script src="../../engine/motion.js"></script>
+<style>
+:root{--paper:#EFEBD8;--paper2:#F7F4E6;--ink:#1a1a1a;--red:#d9534f;--tape:rgba(214,203,160,.75);--muted:#6b6658}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--paper)}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;color:var(--ink);font-family:'Be Vietnam Pro',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+#paper{position:absolute;inset:0;background-color:var(--paper);background-image:url("data:image/svg+xml,%3Csvg width='220' height='220' viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E")}
+#vig{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,0) 55%,rgba(120,100,50,.18) 100%);pointer-events:none;z-index:900}
+.scene{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;display:none}
+.cam{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.a{position:absolute}
+.hand{font-family:'Patrick Hand',cursive;letter-spacing:.005em}
+.card{position:absolute;background:var(--paper2);border:3px solid var(--ink);border-radius:18px;box-shadow:8px 8px 0 var(--ink)}
+.note{position:absolute;background:#FBF8EC;box-shadow:0 14px 26px rgba(60,50,20,.18),0 2px 4px rgba(60,50,20,.12);padding:34px 36px}
+.tape{position:absolute;left:50%;top:-18px;width:140px;height:38px;margin-left:-70px;background:var(--tape);transform:rotate(-3deg)}
+.roll{position:absolute;overflow:hidden}.roll>div{white-space:nowrap}
+.mask{display:inline-block;overflow:hidden;vertical-align:bottom;padding-bottom:.1em}.mask>span{display:inline-block}
+.chip{position:absolute;display:flex;align-items:center;justify-content:center;border:2.5px solid var(--ink);border-radius:999px;background:var(--paper2);font-weight:600;white-space:nowrap}
+svg.ink path,svg.ink ellipse,svg.ink line{fill:none;stroke-linecap:round;stroke-linejoin:round}
+#pencil{position:absolute;left:0;top:0;width:120px;height:120px;z-index:950;transform-origin:10px 110px;pointer-events:none}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+ <filter id="boil0"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="1"/><feDisplacementMap in="SourceGraphic" scale="3.2"/></filter>
+ <filter id="boil1"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="3.2"/></filter>
+ <filter id="boil2"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="13"/><feDisplacementMap in="SourceGraphic" scale="3.2"/></filter>
+</defs></svg>
+<div id="stage"><div id="paper"></div><div id="vig"></div></div>
+<svg id="pencil" viewBox="0 0 120 120"><g transform="rotate(-38 60 60)"><rect x="52" y="-6" width="18" height="92" rx="3" fill="#F2C14E" stroke="#1a1a1a" stroke-width="3"/><rect x="52" y="-6" width="18" height="16" fill="#d9534f" stroke="#1a1a1a" stroke-width="3"/><path d="M52 86 L61 112 L70 86 Z" fill="#E9D3A5" stroke="#1a1a1a" stroke-width="3" stroke-linejoin="round"/><path d="M58 104 L61 112 L64 104 Z" fill="#1a1a1a"/></g></svg>
+<script>
+/* ===== VibeSketch AI — 60 s film. Brand from the repo: index.html tailwind theme (paper #EFEBD8, ink #1a1a1a, accent #d9534f),
+   fonts Patrick Hand + sans; characters from assets/characters; real output frames from output.mp4 ===== */
+const BPM = 114.996, B = VP.clock(BPM), W = 1920, H = 1080;
+const { sp, track, ramp, clamp, lerp, ease, eOut, SPR, roll, place } = VP;
+const $ = s => document.querySelector(s), stage = $('#stage');
+const f2 = v => (+v).toFixed(2), f4 = v => (+v).toFixed(4);
+const CH = ['01-curious', '02-hyperactive', '03-sleepy', '04-confident', '05-anxious', '06-mischievous', '07-introvert', '08-inventor', '09-athlete', '10-dreamer', '11-strict-teacher', '12-gamer', '13-cheerful', '14-overthinker', '15-detective', '16-artist', '17-leader', '18-bookworm', '19-dramatic', '20-gentle'];
+const CHN = ['Tò mò', 'Tăng động', 'Buồn ngủ', 'Tự tin', 'Lo âu', 'Tinh quái', 'Hướng nội', 'Nhà phát minh', 'Vận động viên', 'Mộng mơ', 'Giáo viên khó tính', 'Game thủ', 'Cực vui vẻ', 'Overthinking', 'Thám tử', 'Nghệ sĩ', 'Lãnh đạo', 'Học bá', 'Kịch tính', 'Dịu dàng'];
+const img = i => `assets/ch/${CH[i]}.png`;
+function el(p, html) { p.insertAdjacentHTML('beforeend', html); return p.lastElementChild; }
+const words = (t, cls = '') => t.split(' ').map(w => `<span class="mask"><span class="${cls}">${w}</span></span>`).join(' ');
+function rollBox(p, x, y, w, h, html, style = '') { return el(p, `<div class="roll" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${style}"><div style="height:${h}px;line-height:${h}px">${html}</div></div>`); }
+const rollK = (e, a, o) => { const k = sp(a, ...SPR.SNAP) + (o ? sp(o, ...SPR.SNAP) : 0); roll(e.firstElementChild, k, e.offsetHeight); };
+const wordsK = (e, b0, step = .22, out = null) => e.querySelectorAll('.mask>span').forEach((w, i) => { const k = sp(b0 + i * step, ...SPR.POP) - (out ? sp(out, ...SPR.SNAP) : 0); w.style.transform = `translateY(${f2((1 - k) * 105)}%)`; });
+const pop = (e, b0, pre = SPR.POP, rot = 0) => { const k = sp(b0, ...pre); e.style.transform = `${e.dataset.base || ''} scale(${f4(Math.max(0, k))}) rotate(${f2(rot * (1 - Math.min(1, k)))}deg)`; e.style.visibility = k > .003 ? 'visible' : 'hidden'; return k; };
+/* stop-motion time: quantise beats to 12 fps for doodle-ish pops */
+const Q = b => Math.floor(b * B * 12) / 12 / B;
+const spQ = (b0, f, z) => VP.spring((Q(VP.bt) - b0) * B, f, z);
+/* draw an SVG path (pathLength=1) between two beats */
+const draw = (p, b0, b1, fn = eOut) => { p.style.strokeDashoffset = f4(1 - fn(ramp(b0, b1, x => x))); };
+/* pencil-reveal: clip an element left→right, returns the reveal edge x (0..1) */
+const reveal = (e, b0, b1) => { const k = ease(ramp(b0, b1, x => x)); e.style.clipPath = `inset(-20% ${f2((1 - k) * 100)}% -20% -2%)`; return k; };
+let PENCIL = null;   // {x,y} in stage coords this frame (set by scenes), null = hidden
+
+/* ===== scenes ===== */
+const S = [];
+function scene(id, start, end, inT, build, anim, bg = '') {
+  const root = el(stage, `<div class="scene" id="${id}" style="z-index:${S.length + 1};${bg ? 'background:' + bg : ''}"><div class="cam"></div><div class="hud" style="position:absolute;inset:0"></div></div>`);
+  const s = { id, start, end, in: inT, root, cam: root.firstElementChild, hud: root.lastElementChild, anim }; build(s.cam, s); S.push(s); return s;
+}
+const HEAD = (s, text, b0, b1, x = 120, y = 70, size = 64) => { const e = rollBox(s.hud, x, y, 1700, size * 1.35, `<span class="hand" style="font-size:${size}px">${text}</span>`); return { e, b0, b1 }; };
+
+/* 1 · INTRO — a pencil draws the first character, a thought becomes a story (0–8) */
+scene('intro', 0, 9, 'none', (c, s) => {
+  s.ch = el(c, `<img class="a" src="${img(0)}" style="left:210px;top:250px;width:560px;height:560px">`);
+  s.bub = el(c, `<svg class="a ink" style="left:560px;top:140px" width="360" height="260" viewBox="0 0 360 260"><path pathLength="1" stroke-dasharray="1" stroke="#1a1a1a" stroke-width="5" d="M70 170 C20 160 20 90 80 80 C90 30 170 20 200 55 C240 20 320 40 310 100 C350 120 330 180 280 175 C260 215 180 215 160 185 C130 205 80 200 70 170 Z"/><path pathLength="1" stroke-dasharray="1" stroke="#1a1a1a" stroke-width="5" d="M60 200 a12 12 0 1 0 1 0 M35 232 a7 7 0 1 0 1 0"/><text x="190" y="140" text-anchor="middle" font-family="Patrick Hand" font-size="84" fill="#d9534f" class="q">?</text></svg>`);
+  s.l1 = el(c, `<div class="a hand" style="left:900px;top:340px;font-size:104px;line-height:1.05">Mỗi chủ đề</div>`);
+  s.l2 = el(c, `<div class="a hand" style="left:900px;top:460px;font-size:104px;line-height:1.05">là một <span style="color:var(--red)">câu chuyện.</span></div>`);
+  s.ul = el(c, `<svg class="a ink" style="left:1150px;top:572px" width="480" height="60" viewBox="0 0 480 60"><path pathLength="1" stroke-dasharray="1" stroke="#d9534f" stroke-width="12" d="M10 30 C120 18 260 44 470 22"/></svg>`);
+}, (s, b) => {
+  const k = reveal(s.ch, .3, 3.2); if (b > .3 && b < 3.3) PENCIL = { x: 210 + 560 * k, y: 380 + 150 * Math.sin(k * 18) * (1 - k * .3) };
+  s.bub.querySelectorAll('path').forEach((p, i) => draw(p, 3.1 + i * .5, 4.3 + i * .5)); const q = s.bub.querySelector('.q'); q.setAttribute('transform', `translate(190 110) scale(${f4(spQ(4.4, ...SPR.POP))}) translate(-190 -110)`);
+  const k1 = reveal(s.l1, 4.2, 5.6), k2 = reveal(s.l2, 5.6, 7.3);
+  if (b >= 4.2 && b < 5.6) PENCIL = { x: 900 + 520 * k1, y: 420 }; if (b >= 5.6 && b < 7.3) PENCIL = { x: 900 + 740 * k2, y: 540 };
+  draw(s.ul.firstElementChild, 7.1, 7.9);
+  VP.camera(s.cam, 1 + .05 * ramp(0, 9, x => x), 960, 540);
+});
+
+/* 2 · LOGO (8–16) */
+scene('logo', 8, 16.8, 'pan', (c, s) => {
+  s.wm = el(c, `<div class="a hand" style="left:0;right:0;top:300px;text-align:center;font-size:250px;line-height:1">VibeSketch<span class="ai" style="display:inline-block;margin-left:28px;font-family:'Be Vietnam Pro';font-weight:800;font-size:120px;color:#fff;background:var(--red);padding:6px 26px 10px;border-radius:18px;vertical-align:middle;transform-origin:50% 60%">AI</span></div>`);
+  s.tag = el(c, `<div class="a" style="left:0;right:0;top:640px;text-align:center;font-size:46px;font-weight:600">${words('Biến một chủ đề thành video kể chuyện hoàn chỉnh.')}</div>`);
+  s.stars = [[330, 250, 1.2], [1600, 220, 1], [1560, 560, .8], [380, 620, .9]].map(([x, y, sc], i) => el(c, `<svg class="a ink" style="left:${x}px;top:${y}px" width="90" height="90" viewBox="0 0 90 90"><path pathLength="1" stroke-dasharray="1" stroke="${i % 2 ? '#d9534f' : '#1a1a1a'}" stroke-width="6" d="M45 8 L52 38 L82 45 L52 52 L45 82 L38 52 L8 45 L38 38 Z"/></svg>`));
+}, (s, b) => {
+  const k = reveal(s.wm, 8.4, 10.6); if (b > 8.4 && b < 10.6) PENCIL = { x: 330 + 1260 * k, y: 470 };
+  const ai = s.wm.querySelector('.ai'), a = sp(10.7, 2.8, .45); ai.style.transform = `rotate(${f2(-8 * a)}deg) scale(${f4(a > 0 ? lerp(1.8, 1, Math.min(1, a)) : 0)}, ${f4(a > 0 ? lerp(.4, 1, Math.min(1, a)) : 0)})`;
+  wordsK(s.tag, 11.4, .18);
+  s.stars.forEach((e, i) => { draw(e.firstElementChild, 12 + i * .35, 12.8 + i * .35); e.style.transform = `rotate(${f2(Math.floor(b * B * 8) % 2 ? 4 : -4)}deg)`; });
+});
+
+/* 3 · TOPIC — type one line, press create (16–24) */
+const TOPIC = '3 thói quen nhỏ giúp bạn kỷ luật hơn mỗi ngày';
+scene('topic', 16, 24.8, 'pan', (c, s) => {
+  s.h = HEAD(s, 'Chỉ cần <span style="color:var(--red)">một chủ đề.</span>', 16.4, null, 260, 110, 78);
+  s.card = el(c, `<div class="card" style="left:260px;top:280px;width:1400px;height:560px;transform:rotate(-1deg)">
+    <div class="hand" style="position:absolute;left:56px;top:40px;font-size:40px">Chủ đề video</div>
+    <div style="position:absolute;left:56px;top:104px;width:1284px;height:112px;border:3px solid var(--ink);border-radius:14px;background:#fff;padding:0 30px;display:flex;align-items:center;font-size:44px;font-weight:600"><span class="typed"></span><i class="caret" style="display:inline-block;width:4px;height:52px;background:var(--red);margin-left:4px"></i></div></div>`);
+  const k = s.card; s.typed = k.querySelector('.typed'); s.caret = k.querySelector('.caret');
+  s.opts = [['Giọng điệu', 'Truyền cảm hứng'], ['Ngôn ngữ', 'Tiếng Việt'], ['Tỉ lệ khung hình', '9:16']].map(([l, v], i) => el(k, `<div class="a" style="left:${56 + i * 430}px;top:262px"><div style="font-size:24px;color:var(--muted);font-weight:500">${l}</div><div class="chip" style="position:relative;margin-top:10px;height:66px;padding:0 28px;font-size:30px;justify-content:flex-start">${v}</div></div>`));
+  s.btn = el(k, `<div class="a" style="left:880px;top:410px;width:460px;height:100px;border:3px solid var(--ink);border-radius:20px;background:var(--red);color:#fff;font-size:40px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:14px;box-shadow:6px 6px 0 var(--ink)">Tạo video &#10022;</div>`);
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  const k = sp(16, ...SPR.HEAVY); s.card.style.transform = `translateY(${f2((1 - k) * 260)}px) rotate(-1deg)`;
+  const n = Math.floor(TOPIC.length * clamp((b - 17.2) / 3.2)); s.typed.textContent = TOPIC.slice(0, n);
+  s.caret.style.opacity = (b < 20.4 || Math.floor(b * 2) % 2) ? 1 : 0;   // caret blink = hard on/off, not a fade
+  s.opts.forEach((e, i) => { e.dataset.base = ''; pop(e, 20.6 + i * .3, SPR.POP, 6); e.style.transformOrigin = '0 0'; });
+  const press = b >= 22.6 && b < 23.2 ? Math.sin(clamp((b - 22.6) / .55) * Math.PI) : 0;
+  s.btn.style.transform = `translate(${f2(press * 6)}px,${f2(press * 6)}px) scale(${f4(1 - .03 * press)})`; s.btn.style.boxShadow = `${f2(6 - 6 * press)}px ${f2(6 - 6 * press)}px 0 var(--ink)`;
+  if (b > 21.4 && b < 23.6) { const e = ease(ramp(21.4, 22.5, x => x)); PENCIL = { x: lerp(1500, 1300, e), y: lerp(980, 780, e) }; }
+});
+
+/* 4 · WIZARD — 7 steps on a hand-drawn road (24–32) */
+const STEPS = ['Chủ đề', 'Tiêu đề', 'Kịch bản', 'Ảnh cảnh', 'Thumbnail', 'Giọng đọc', 'Render MP4'];
+const SX = i => 220 + i * 420, SY = i => 560 + (i % 2 ? -110 : 110);
+scene('wizard', 24, 32.8, 'rise', (c, s) => {
+  s.h = HEAD(s, '7 bước. <span style="color:var(--red)">AI làm hết.</span>', 24.5, null, 120, 70, 78);
+  let d = `M ${SX(0)} ${SY(0)}`; for (let i = 1; i < 7; i++) d += ` C ${SX(i - 1) + 210} ${SY(i - 1)}, ${SX(i) - 210} ${SY(i)}, ${SX(i)} ${SY(i)}`;
+  s.road = el(c, `<svg class="a ink" style="left:0;top:0" width="3000" height="1080"><path class="rd" pathLength="1" stroke-dasharray="1" stroke="#1a1a1a" stroke-width="6" d="${d}"/><path class="rd2" pathLength="1" stroke-dasharray="1" stroke="#d9534f" stroke-width="12" d="${d}"/><circle class="dot" r="18" fill="#d9534f"/></svg>`);
+  s.nodes = STEPS.map((t, i) => el(c, `<div class="a" style="left:${SX(i) - 70}px;top:${SY(i) - 70}px;width:140px;height:140px"><div class="n" style="position:absolute;inset:0;border:4px solid var(--ink);border-radius:50%;background:var(--paper2);display:flex;align-items:center;justify-content:center;font-size:58px;font-weight:800">${i + 1}</div><div class="hand" style="position:absolute;left:-80px;right:-80px;top:${i % 2 ? -78 : 156}px;text-align:center;font-size:48px;white-space:nowrap">${t}</div></div>`));
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  const rd = s.road.querySelector('.rd'), rd2 = s.road.querySelector('.rd2'), dot = s.road.querySelector('.dot');
+  draw(rd, 24.3, 26, ease); const p = ease(ramp(25.2, 31, x => x)); rd2.style.strokeDashoffset = f4(1 - p);
+  const L = rd2.getTotalLength(), pt = rd2.getPointAtLength(L * p); dot.setAttribute('cx', f2(pt.x)); dot.setAttribute('cy', f2(pt.y)); dot.setAttribute('r', b > 25.2 ? 18 : 0);
+  s.nodes.forEach((e, i) => { const reach = 25.2 + (i / 6) * 5.8, k = spQ(24.6 + i * .18, ...SPR.POP); e.style.transform = `scale(${f4(k)})`; e.style.visibility = k > .003 ? 'visible' : 'hidden';
+    const on = b >= reach; const n = e.querySelector('.n'); n.style.background = on ? 'var(--red)' : 'var(--paper2)'; n.style.color = on ? '#fff' : 'var(--ink)'; n.innerHTML = on ? '&#10003;' : i + 1; });
+  const cx = lerp(620, 2140, ease(ramp(25.4, 31.2, x => x)));   // camera pans along the road
+  s.cam.style.transform = `translateX(${f2(960 - cx)}px)`;
+});
+
+/* 5 · TITLES — sticky notes, marker circles the winner (32–40) */
+const TITLES = ['Làm sao để kỷ luật mà không cần ý chí?', '3 thói quen nhỏ giúp bạn kỷ luật hơn mỗi ngày', 'Vì sao bạn luôn bỏ cuộc sau 3 ngày?'];
+scene('titles', 32, 40.8, 'pan', (c, s) => {
+  s.h = HEAD(s, 'AI viết <span style="color:var(--red)">tiêu đề viral.</span>', 32.4, null, 120, 70, 78);
+  s.notes = TITLES.map((t, i) => { const e = el(c, `<div class="note" style="left:${130 + i * 575}px;top:${300 + (i % 2) * 40}px;width:520px;height:420px"><div class="tape"></div><div class="hand" style="font-size:54px;line-height:1.12">${t}</div><div style="position:absolute;left:36px;bottom:30px;font-size:22px;color:var(--muted);font-weight:600">Tiêu đề ${i + 1}</div></div>`); e.dataset.r = [-4, 2, 5][i]; return e; });
+  s.circ = el(c, `<svg class="a ink" style="left:640px;top:270px" width="640" height="500" viewBox="0 0 640 500"><path pathLength="1" stroke-dasharray="1" stroke="#d9534f" stroke-width="10" d="M330 30 C120 20 20 120 40 260 C60 420 300 480 470 440 C620 400 640 220 560 110 C500 40 380 20 260 40"/></svg>`);
+  s.tick = el(c, `<svg class="a ink" style="left:1140px;top:210px" width="160" height="140" viewBox="0 0 160 140"><path pathLength="1" stroke-dasharray="1" stroke="#d9534f" stroke-width="16" d="M15 75 L60 120 L145 18"/></svg>`);
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  s.notes.forEach((e, i) => { const k = sp(32.6 + i * .45, 2.0, .6), r = +e.dataset.r, away = i !== 1 ? sp(37.4, ...SPR.GLIDE) : 0, win = i === 1 ? sp(37.4, ...SPR.POP) : 0;
+    e.style.transform = `translate(${f2((i - 1) * 60 * away)}px,${f2((1 - k) * 900 + 60 * away)}px) rotate(${f2(r + (1 - k) * r * 6)}deg) scale(${f4(1 - .08 * away + .06 * win)})`; });
+  draw(s.circ.firstElementChild, 35.8, 37, ease); draw(s.tick.firstElementChild, 37.2, 37.8);
+  if (b > 35.8 && b < 37.8) { const p = s.circ.firstElementChild, L = p.getTotalLength(), q = b < 37 ? p.getPointAtLength(L * ease(ramp(35.8, 37, x => x))) : { x: 500 + 160 * ease(ramp(37.2, 37.8, x => x)), y: 20 }; PENCIL = { x: 640 + q.x, y: 270 + q.y }; }
+});
+
+/* 6 · SCRIPT → STORYBOARD (40–48) */
+const LINES = ['Bạn định làm việc lớn…', '…nhưng lại lướt điện thoại.', 'Thử 2 phút mỗi ngày thôi.', 'Và bùm! Bạn đã bắt đầu.'];
+const PANEL_CH = [0, 2, 4, 12];
+scene('script', 40, 48.8, 'page', (c, s) => {
+  s.h = HEAD(s, 'Kịch bản → <span style="color:var(--red)">từng cảnh có hình.</span>', 40.5, null, 120, 60, 72);
+  s.pad = el(c, `<div class="a" style="left:110px;top:210px;width:700px;height:780px;background:#FBF9EF;box-shadow:0 18px 40px rgba(60,50,20,.18);background-image:repeating-linear-gradient(#FBF9EF 0 70px,#b9c7d8 70px 72px);transform:rotate(-1.5deg)"><div style="position:absolute;left:78px;top:0;bottom:0;width:3px;background:rgba(217,83,79,.55)"></div></div>`);
+  s.lines = LINES.map((t, i) => el(s.pad, `<div class="a hand" style="left:104px;top:${96 + i * 140}px;font-size:50px;white-space:nowrap"><span style="color:var(--red)">${i + 1}.</span> ${t}</div>`));
+  s.panels = PANEL_CH.map((ci, i) => el(c, `<div class="a" style="left:${900 + (i % 2) * 470}px;top:${220 + Math.floor(i / 2) * 400}px;width:440px;height:370px;background:#fff;border:4px solid var(--ink);border-radius:10px;overflow:hidden"><img src="${img(ci)}" style="position:absolute;left:50%;top:48%;width:340px;height:340px;transform:translate(-50%,-50%)"><div style="position:absolute;left:14px;top:10px;font-size:22px;font-weight:800">CẢNH ${i + 1}</div></div>`));
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  s.lines.forEach((e, i) => { const k = reveal(e, 41 + i * 1.3, 42.1 + i * 1.3); if (b > 41 + i * 1.3 && b < 42.1 + i * 1.3) PENCIL = { x: 214 + 560 * k, y: 330 + i * 140 }; });
+  s.panels.forEach((e, i) => { const k = spQ(42.1 + i * 1.3, 2.2, .55); e.style.transform = `translateY(${f2((1 - k) * 60)}px) rotate(${f2((i % 2 ? 2 : -2) * (1 - k) * 4)}deg) scale(${f4(k)})`; e.style.visibility = k > .003 ? 'visible' : 'hidden'; });
+  VP.camera(s.cam, 1 + .04 * ramp(40, 49, x => x), 960, 560);
+});
+
+/* 7 · CHARACTERS — 20 personalities, stop-motion pop (48–56) */
+scene('chars', 48, 56.8, 'pan', (c, s) => {
+  s.h = HEAD(s, '20 nhân vật, <span style="color:var(--red)">20 tính cách.</span>', 48.4, null, 120, 60, 78);
+  s.cells = CH.map((_, i) => el(c, `<div class="a" style="left:${70 + (i % 10) * 180}px;top:${230 + Math.floor(i / 10) * 400}px;width:170px;height:370px;text-align:center"><img src="${img(i)}" style="width:190px;height:190px;margin:30px -10px 0"><div class="hand" style="font-size:31px;line-height:1.05;margin-top:6px">${CHN[i]}</div></div>`));
+  s.circ = el(c, `<svg class="a ink" style="left:40px;top:200px" width="240" height="380" viewBox="0 0 240 380"><path pathLength="1" stroke-dasharray="1" stroke="#d9534f" stroke-width="9" d="M130 12 C40 10 10 110 18 200 C26 320 110 372 170 350 C236 322 236 150 210 70 C190 20 150 8 90 22"/></svg>`);
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  s.cells.forEach((e, i) => { const k = spQ(48.6 + ((i * 7) % 20) * .14, 2.4, .5); e.style.transform = `translateY(${f2((1 - k) * 80)}px) scale(${f4(k)}) rotate(${f2((i % 3 - 1) * 10 * (1 - Math.min(1, k)))}deg)`; e.style.visibility = k > .003 ? 'visible' : 'hidden';
+    const im = e.firstElementChild; im.style.transform = b > 52 ? `rotate(${Math.floor(Q(b) * B * 6 + i) % 2 ? 2 : -2}deg)` : ''; });   // idle wobble at 6 fps
+  draw(s.circ.firstElementChild, 52.6, 53.6, ease);
+  const z = track([[0, 1], [53.4, 1.9, 1.1, .9]]); VP.camera(s.cam, z, 160, 420);
+});
+
+/* 8 · VOICE — three languages, drawn waveform (56–64) */
+scene('voice', 56, 64.8, 'pan', (c, s) => {
+  s.h = HEAD(s, 'Giọng đọc <span style="color:var(--red)">tự nhiên</span>, đa ngôn ngữ.', 56.4, null, 120, 60, 74);
+  s.ch = el(c, `<img class="a" src="${img(9)}" style="left:120px;top:300px;width:600px;height:600px">`);
+  s.lang = el(c, `<div class="card" style="left:820px;top:260px;width:900px;height:200px;overflow:hidden;box-shadow:8px 8px 0 var(--red)"><div class="rl" style="position:absolute;left:0;right:0;top:0"></div></div>`);
+  const rl = s.lang.querySelector('.rl'); ['Tiếng Việt', 'English', '日本語'].forEach((t, i) => el(rl, `<div style="height:200px;display:flex;align-items:center;justify-content:center;font-size:96px;${i === 2 ? "font-family:'Klee One'" : "font-family:'Patrick Hand'"}">${t}</div>`));
+  s.wave = el(c, `<div class="a" style="left:820px;top:560px;width:900px;height:220px"></div>`);
+  s.bars = [...Array(46)].map((_, i) => el(s.wave, `<i style="position:absolute;left:${i * 19.6}px;top:110px;width:10px;height:20px;border-radius:5px;background:var(--ink);display:block"></i>`));
+  s.prov = ['ElevenLabs', 'Gemini TTS', 'VieNeu · chạy local'].map((t, i) => el(c, `<div class="chip" style="left:${820 + i * 310}px;top:840px;height:64px;padding:0 26px;font-size:26px">${t}</div>`));
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  const ck = reveal(s.ch, 56.3, 58); if (b > 56.3 && b < 58) PENCIL = { x: 120 + 600 * ck, y: 600 };
+  const lk = sp(56.6, ...SPR.POP); s.lang.style.transform = `scale(${f4(lk)})`; s.lang.style.visibility = lk > .003 ? 'visible' : 'hidden';
+  const idx = track([[0, 0], [59.4, 1, 2.2, .78], [61.4, 2, 2.2, .78]]); s.lang.querySelector('.rl').style.transform = `translateY(${f2(-idx * 200)}px)`;
+  const tq = Math.floor(b * B * 12); const shown = ramp(57.4, 59.2, x => x);
+  s.bars.forEach((e, i) => { const on = i / 46 < shown; const hgt = on ? 26 + 150 * Math.abs(Math.sin(i * .9 + tq * .7) * Math.sin(i * .23 + tq * .31)) : 0; e.style.height = f2(hgt) + 'px'; e.style.top = f2(110 - hgt / 2) + 'px'; e.style.background = i % 9 === 4 ? 'var(--red)' : 'var(--ink)'; });
+  s.prov.forEach((e, i) => pop(e, 60.4 + i * .3, SPR.POP, 8));
+});
+
+/* 9 · KARAOKE — real output + word-synced captions (64–72, calm) */
+const KW = [["Hoàn", 0.02], ["thành", 0.3], ["2", 0.5], ["phút", 0.72], ["là", 0.94], ["bỏ", 1.34], ["phiếu", 1.62], ["cho", 1.88], ["con", 2.16], ["người", 2.44], ["bạn", 2.6], ["muốn", 2.8], ["trở", 3.04], ["thành.", 3.28]];
+scene('karaoke', 64, 72.8, 'rise', (c, s) => {
+  s.h = HEAD(s, 'Caption <span style="color:var(--red)">khớp từng chữ.</span>', 64.4, null, 1000, 150, 78);
+  s.ph = el(c, `<div class="a" style="left:230px;top:70px;width:520px;height:930px;border-radius:64px;background:#141414;padding:14px;box-shadow:0 30px 60px rgba(40,30,10,.3)"><div style="position:relative;width:100%;height:100%;border-radius:52px;overflow:hidden;background:#fbf6e3"><img class="fr" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover"></div></div>`);
+  s.fr = s.ph.querySelector('.fr'); s.frames = [...Array(96)].map((_, i) => `assets/vid/f${String(i + 1).padStart(3, '0')}.jpg`);
+  s.frames.forEach(u => { const im = new Image(); im.src = u; document.body.appendChild(Object.assign(im, { style: 'position:absolute;width:1px;height:1px;opacity:0' })); });
+  s.kar = el(c, `<div class="a" style="left:1000px;top:330px;width:800px;font-size:74px;font-weight:800;line-height:1.28">${KW.map(([w]) => `<span class="kw" style="display:inline-block;margin-right:.26em">${w}</span>`).join('')}</div>`);
+  s.arrow = el(c, `<svg class="a ink" style="left:700px;top:560px" width="320" height="260" viewBox="0 0 320 260"><path pathLength="1" stroke-dasharray="1" stroke="#d9534f" stroke-width="8" d="M20 230 C120 220 200 150 290 40 M290 40 L250 50 M290 40 L285 82"/></svg>`);
+  s.tag = el(c, `<div class="chip" style="left:1000px;top:800px;height:60px;padding:0 24px;font-size:26px">Whisper · karaoke · 4 kiểu caption</div>`);
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  const pk = sp(64, ...SPR.HEAVY); s.ph.style.transform = `translateY(${f2((1 - pk) * 500)}px) rotate(${f2(-3 + 3 * pk)}deg)`;
+  const fi = clamp(Math.floor((b - 64) * B * 12), 0, 95); s.fr.src = s.frames[fi];
+  const tsec = (b - 65.2) * B; s.kar.querySelectorAll('.kw').forEach((e, i) => { const on = tsec >= KW[i][1]; const k = on ? clamp((tsec - KW[i][1]) / .12) : 0; e.style.color = on ? 'var(--red)' : 'var(--ink)'; e.style.transform = `translateY(${f2(-8 * Math.sin(k * Math.PI))}px)`; e.style.visibility = b >= 64.6 ? 'visible' : 'hidden'; });
+  draw(s.arrow.firstElementChild, 65, 66.2); pop(s.tag, 67, SPR.POP, 4);
+});
+
+/* 10 · LIBRARY — a book becomes topics + a schedule (72–80) */
+const BOOK_T = ['Kỷ luật bắt đầu từ 2 phút', 'Vì sao ý chí luôn cạn?', '3 thói quen nhỏ mỗi ngày'];
+scene('library', 72, 80.6, 'page', (c, s) => {
+  s.h = HEAD(s, 'Tải sách lên → <span style="color:var(--red)">gợi ý chủ đề.</span>', 72.4, null, 120, 60, 74);
+  s.book = el(c, `<div class="a" style="left:180px;top:300px;width:620px;height:460px">
+     <div style="position:absolute;left:0;top:0;width:310px;height:460px;background:#fff;border:4px solid var(--ink);border-radius:14px 0 0 14px"></div>
+     <div class="pg" style="position:absolute;left:306px;top:0;width:310px;height:460px;background:#fff;border:4px solid var(--ink);border-radius:0 14px 14px 0;transform-origin:0 50%"></div>
+     <div class="cv" style="position:absolute;left:306px;top:0;width:310px;height:460px;background:var(--red);border:4px solid var(--ink);border-radius:0 14px 14px 0;transform-origin:0 50%;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;font-family:'Patrick Hand';font-size:50px;line-height:1.05;padding:20px">Kỷ Luật<br>Là Tự Do</div>
+     <div class="hand" style="position:absolute;left:0;right:0;top:486px;text-align:center;font-size:30px;color:var(--muted)">PDF · EPUB · TXT · MD</div></div>`);
+  for (let i = 0; i < 6; i++) el(s.book.children[0], `<i style="position:absolute;left:36px;right:30px;top:${60 + i * 58}px;height:6px;border-radius:3px;background:#d6d0bb;display:block"></i>`);
+  s.tops = BOOK_T.map((t, i) => el(c, `<div class="note" style="left:960px;top:${250 + i * 190}px;width:720px;height:150px;padding:0 40px;display:flex;align-items:center"><div class="tape" style="left:14%;top:-14px;width:90px;height:30px"></div><span class="hand" style="font-size:52px">${t}</span></div>`));
+  s.cal = el(c, `<div class="a" style="left:960px;top:840px;display:flex;gap:14px;align-items:center"><span style="font-size:26px;font-weight:700;margin-right:10px">Lịch tự sinh video</span>${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => `<div class="d" style="width:70px;height:70px;border:3px solid var(--ink);border-radius:14px;background:var(--paper2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">${d}</div>`).join('')}</div>`);
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  const bk = sp(72.2, ...SPR.HEAVY); s.book.style.transform = `translateY(${f2((1 - bk) * 300)}px) rotate(${f2((1 - bk) * -6)}deg)`;
+  const op = ease(ramp(73.2, 74.2, x => x)); const cv = s.book.querySelector('.cv'); cv.style.transform = `scaleX(${f4(1 - 2 * op)})`; cv.style.visibility = op < .5 ? 'visible' : 'hidden';
+  const fl = s.book.querySelector('.pg'); const fp = (Q(b) - 74.4) / .5; const flip = fp > 0 && fp < 3 ? fp % 1 : 0; fl.style.transform = `scaleX(${f4(1 - 2 * flip)})`;
+  s.tops.forEach((e, i) => { const k = sp(75.2 + i * .55, 2.1, .6); e.style.transform = `translateX(${f2((1 - k) * -520)}px) rotate(${f2((i - 1) * 1.5 + (1 - k) * -12)}deg) scale(${f4(lerp(.4, 1, clamp(k)))})`; e.style.visibility = k > .01 ? 'visible' : 'hidden'; });
+  s.cal.querySelectorAll('.d').forEach((d, i) => { const on = b >= 77.4 + i * .18; d.style.background = on ? 'var(--red)' : 'var(--paper2)'; d.style.color = on ? '#fff' : 'var(--ink)'; });
+  pop(s.cal, 77, SPR.SNAP);
+});
+
+/* 11 · RENDER + WALL — red scribble wipe on the drop (80–92) */
+const WALL_T = ['Kỷ luật là tự do', 'Ngủ đủ giấc', 'Tiết kiệm 1%', 'Học tiếng Anh', 'Sống chậm lại', 'Tập trung sâu', 'Đọc 10 trang', 'Dậy sớm 5h'];
+scene('render', 80, 92.8, 'none', (c, s) => {
+  s.h = HEAD(s, 'Render MP4 <span style="color:var(--red)">ngay trong trình duyệt.</span>', 80.4, 84.2, 180, 200, 80);
+  s.bar = el(c, `<div class="a" style="left:180px;top:470px;width:1560px;height:130px;border:5px solid var(--ink);border-radius:26px;background:var(--paper2);overflow:hidden"><div class="fill" style="position:absolute;left:0;top:0;bottom:0;width:0;background:repeating-linear-gradient(-45deg,var(--red) 0 22px,#c4453f 22px 44px)"></div><div class="pct" style="position:absolute;right:30px;top:0;bottom:0;display:flex;align-items:center;font-size:64px;font-weight:800">0%</div></div>`);
+  s.wall = el(c, `<div class="a" style="left:0;top:0;width:1920px;height:1080px"></div>`);
+  s.rows = [0, 1, 2].map(r => { const row = el(s.wall, `<div class="a" style="left:0;top:${60 + r * 340}px;height:320px;width:6000px"></div>`);
+    for (let i = 0; i < 16; i++) { const ci = (i * 3 + r * 5) % 20, t = WALL_T[(i + r * 3) % 8];
+      el(row, `<div class="a" style="left:${i * 230}px;top:0;width:200px;height:320px;border-radius:18px;border:3px solid var(--ink);background:#FBF6E3;overflow:hidden"><img src="${img(ci)}" style="position:absolute;left:-20px;top:40px;width:240px;height:240px"><div class="hand" style="position:absolute;left:10px;right:10px;top:10px;font-size:26px;line-height:1">${t}</div><div style="position:absolute;left:10px;right:10px;bottom:12px;text-align:center;font-size:15px;font-weight:800;color:#fff;background:var(--ink);border-radius:6px;padding:3px 0">${['9:16', 'MP4', 'HD'][i % 3]}</div></div>`); }
+    return row; });
+  s.h2 = rollBox(s.hud, 0, 470, W, 140, `<span class="hand" style="font-size:118px;background:var(--paper);padding:0 36px;border-radius:20px">Video <span style="color:var(--red)">sẵn sàng đăng.</span></span>`, 'text-align:center');
+  s.scrib = el(s.hud, `<svg class="a" style="left:0;top:0;z-index:5" width="1920" height="1080"><path pathLength="1" stroke-dasharray="1" fill="none" stroke="#d9534f" stroke-width="300" stroke-linecap="round" stroke-linejoin="round" d="M-200 80 L2100 180 L-150 420 L2100 520 L-150 760 L2100 860 L-150 1100 L2100 1200"/></svg>`);
+}, (s, b) => {
+  const p = s.scrib.firstElementChild;   // red scribble: draws over the end of the last scene (in its own layer below), erases here
+  p.style.strokeDashoffset = f4(-ease(ramp(80.1, 81.2, x => x))); p.style.visibility = b < 81.2 ? 'visible' : 'hidden';
+  rollK(s.h.e, s.h.b0, s.h.b1);
+  const pr = clamp((b - 80.6) / 2.6), stepped = Math.floor(ease(pr) * 20) / 20; s.bar.querySelector('.fill').style.width = f2(stepped * 100) + '%'; s.bar.querySelector('.pct').textContent = Math.round(stepped * 100) + '%';
+  const bo = sp(84.2, ...SPR.SNAP); s.bar.style.transform = `translateY(${f2(bo * 900)}px) rotate(${f2(bo * 6)}deg)`; s.bar.style.visibility = bo < 1 ? 'visible' : 'hidden';
+  const wk = sp(84.4, ...SPR.GLIDE); s.wall.style.transform = `translateY(${f2((1 - wk) * -1100)}px) rotate(-6deg) scale(1.18)`; s.wall.style.transformOrigin = '50% 50%'; s.wall.style.visibility = b > 84.3 ? 'visible' : 'hidden';
+  s.rows.forEach((r, i) => { const v = (b - 84) * B * (i % 2 ? 150 : -150); r.style.transform = `translateX(${f2((i % 2 ? -2400 : -600) + v)}px)`; });
+  rollK(s.h2, 86.4);
+});
+// the scribble that covers the library scene (drawn in a layer above scene 10 so the cut to scene 11 is hidden)
+const scribCover = el(stage, `<svg class="a" style="left:0;top:0;z-index:40;display:none" width="1920" height="1080"><path pathLength="1" stroke-dasharray="1" fill="none" stroke="#d9534f" stroke-width="300" stroke-linecap="round" stroke-linejoin="round" d="M-200 80 L2100 180 L-150 420 L2100 520 L-150 760 L2100 860 L-150 1100 L2100 1200"/></svg>`);
+
+/* 12 · AGENTS + FORMATS (92–100) */
+const TERM = ['› vibesketch.create_video({', '    topic: "Kỷ luật là tự do",', '    style: "doodle", aspect: "9:16" })', '✓ script · 13 cảnh · voice · captions', '✓ rendered → video.mp4 (62s)'];
+scene('agents', 92, 100.8, 'push', (c, s) => {
+  s.h = HEAD(s, 'Kết nối agent qua <span style="color:var(--red)">API & MCP.</span>', 92.4, null, 120, 60, 74);
+  s.term = el(c, `<div class="a" style="left:120px;top:250px;width:980px;height:560px;border-radius:24px;background:var(--ink);color:var(--paper);padding:70px 50px 40px;font-family:ui-monospace,Menlo,monospace;font-size:31px;line-height:1.7;box-shadow:10px 10px 0 var(--red)"><div style="position:absolute;left:26px;top:24px;display:flex;gap:10px"><i style="width:16px;height:16px;border-radius:50%;background:#d9534f;display:block"></i><i style="width:16px;height:16px;border-radius:50%;background:#EFEBD8;display:block"></i><i style="width:16px;height:16px;border-radius:50%;background:#6b6658;display:block"></i></div><div class="tl"></div></div>`);
+  s.fr = el(c, `<div class="a" style="border:5px solid var(--ink);border-radius:22px;background:#FBF6E3;overflow:hidden"><img src="${img(3)}" style="position:absolute;left:50%;top:50%;width:300px;height:300px;transform:translate(-50%,-50%)"><div class="lab" style="position:absolute;left:14px;top:10px;font-size:26px;font-weight:800"></div></div>`);
+}, (s, b) => {
+  rollK(s.h.e, s.h.b0);
+  const tk = sp(92.2, ...SPR.HEAVY); s.term.style.transform = `translateX(${f2((1 - tk) * -900)}px)`;
+  const total = TERM.join('').length, n = Math.floor(total * clamp((b - 93) / 4.2)); let left = n;
+  s.term.querySelector('.tl').innerHTML = TERM.map(l => { const t = l.slice(0, Math.max(0, left)); left -= l.length; return `<div style="white-space:pre;color:${l.startsWith('✓') ? '#9fd18b' : 'inherit'}">${t.replace(/</g, '&lt;') || '&nbsp;'}</div>`; }).join('');
+  const r = track([[0, [1300, 250, 340, 604]], [96.4, [1180, 330, 600, 338], 1.8, .7], [98.2, [1260, 250, 460, 460], 1.8, .7]]);
+  place(s.fr, [r[0], r[1], r[2], r[3], 22]); s.fr.querySelector('.lab').textContent = b < 96.6 ? '9:16' : b < 98.4 ? '16:9' : '1:1';
+  const fk = sp(93.4, ...SPR.POP); s.fr.style.transform = `scale(${f4(fk)})`; s.fr.style.visibility = fk > .003 ? 'visible' : 'hidden';
+});
+
+/* 13 · NO NEED — strike-throughs (100–108) */
+const NO = ['Không cần quay.', 'Không cần dựng.', 'Không cần vẽ.'];
+scene('noneed', 100, 108.8, 'pan', (c, s) => {
+  s.lines = NO.map((t, i) => { const e = el(c, `<div class="a hand" style="left:0;right:0;top:${150 + i * 190}px;text-align:center;font-size:140px;line-height:1">${t}</div>`);
+    const st = el(c, `<svg class="a ink" style="left:560px;top:${180 + i * 190}px" width="800" height="120" viewBox="0 0 800 120"><path pathLength="1" stroke-dasharray="1" stroke="#d9534f" stroke-width="14" d="M20 70 C160 40 280 90 420 55 C560 25 660 80 790 45"/></svg>`); return { e, st }; });
+  s.last = el(c, `<div class="a hand" style="left:0;right:0;top:760px;text-align:center;font-size:150px;line-height:1;color:var(--red)">${words('Chỉ cần một ý tưởng.')}</div>`);
+}, (s, b) => {
+  s.lines.forEach(({ e, st }, i) => { const k = reveal(e, 100.3 + i * 1.5, 101.1 + i * 1.5); draw(st.firstElementChild, 101.2 + i * 1.5, 101.8 + i * 1.5); });
+  wordsK(s.last, 105, .25);
+});
+
+/* 14 · CLOSE (108–118) */
+scene('close', 108, 118, 'iris', (c, s) => {
+  s.row = [0, 12, 3, 15, 9, 7, 17].map((ci, i) => el(c, `<img class="a" src="${img(ci)}" style="left:${150 + i * 240}px;top:640px;width:300px;height:300px">`));
+  s.wm = el(c, `<div class="a hand" style="left:0;right:0;top:160px;text-align:center;font-size:230px;line-height:1">VibeSketch<span class="ai" style="display:inline-block;margin-left:26px;font-family:'Be Vietnam Pro';font-weight:800;font-size:110px;color:#fff;background:var(--red);padding:6px 24px 10px;border-radius:18px;vertical-align:middle;transform-origin:50% 60%">AI</span></div>`);
+  s.cta = rollBox(c, 0, 450, W, 90, `<span style="font-size:52px;font-weight:700">Kể câu chuyện của bạn — <span style="color:var(--red)">ngay hôm nay.</span></span>`, 'text-align:center');
+  s.ul = el(c, `<svg class="a ink" style="left:1000px;top:540px" width="560" height="50" viewBox="0 0 560 50"><path pathLength="1" stroke-dasharray="1" stroke="#d9534f" stroke-width="10" d="M10 25 C160 12 330 38 550 18"/></svg>`);
+}, (s, b) => {
+  s.row.forEach((e, i) => { const k = spQ(108.6 + i * .22, 2.4, .5); e.style.transform = `translateY(${f2((1 - k) * 320)}px) rotate(${f2((Math.floor(Q(b) * B * 6 + i) % 2 ? 2 : -2) * (b > 111 ? 1 : 0))}deg)`; e.style.visibility = k > .003 ? 'visible' : 'hidden'; });
+  const k = reveal(s.wm, 109.6, 111.6); if (b > 109.6 && b < 111.6) PENCIL = { x: 370 + 1180 * k, y: 300 };
+  const ai = s.wm.querySelector('.ai'), a = sp(111.7, 2.8, .45); ai.style.transform = `rotate(${f2(-8 * a)}deg) scale(${f4(a > 0 ? lerp(1.8, 1, Math.min(1, a)) : 0)}, ${f4(a > 0 ? lerp(.4, 1, Math.min(1, a)) : 0)})`;
+  rollK(s.cta, 112.4); draw(s.ul.firstElementChild, 113.2, 114.1);
+  VP.camera(s.cam, 1 + .035 * ramp(110, 118, x => x), 960, 420);
+});
+
+/* ===== transitions — the paper is continuous, so most cuts are camera moves across the same sheet ===== */
+function trans(s, b) {
+  const k = s.in === 'none' ? 1 : sp(s.start, 1.5, .86); let tf = '', clip = '';
+  switch (s.in) {
+    case 'pan': tf = `translateX(${f2((1 - k) * W)}px)`; break;
+    case 'push': tf = `translateX(${f2((1 - k) * W)}px)`; break;
+    case 'rise': tf = `translateY(${f2((1 - k) * H)}px)`; break;
+    case 'page': tf = `translateX(${f2((1 - k) * W * 1.05)}px) rotate(${f2((1 - k) * 7)}deg)`; s.root.style.transformOrigin = '0% 100%'; s.root.style.background = 'var(--paper)'; s.root.style.boxShadow = k < .999 ? '-30px 0 60px rgba(60,50,20,.25)' : 'none'; break;
+    case 'iris': clip = `circle(${f2(Math.hypot(W, H) / 2 * k)}px at 50% 50%)`; s.root.style.background = 'var(--paper)'; break;
+  }
+  const nx = S[S.indexOf(s) + 1];
+  if (nx && b >= nx.start) { const kx = sp(nx.start, 1.5, .86);
+    tf += { pan: ` translateX(${f2(-kx * W)}px)`, push: ` translateX(${f2(-kx * W * .3)}px)`, rise: ` translateY(${f2(-kx * H * .25)}px)`, page: ` translateX(${f2(-kx * W * .15)}px)`, iris: ` scale(${f4(lerp(1, .96, kx))})`, none: '' }[nx.in] || ''; }
+  s.root.style.transform = tf; s.root.style.clipPath = clip;
+}
+
+/* ===== frame ===== */
+const DUR = 118 * B;
+function frame(t) {
+  const b = VP.at(t); PENCIL = null;
+  const bq = Math.floor(t * 8) % 3;   // line boil at 8 fps
+  S.forEach(s => { const on = b >= s.start - .01 && b < s.end; s.root.style.display = on ? 'block' : 'none'; if (!on) return; trans(s, b); s.anim(s, b);
+    s.root.querySelectorAll('svg.ink, .hand').forEach(e => e.style.filter = `url(#boil${bq})`); });
+  // scribble cover over the library scene before the drop
+  const sc = scribCover.firstElementChild; const cov = ease(ramp(78.9, 80.05, x => x)); scribCover.style.display = b >= 78.9 && b < 80.1 ? 'block' : 'none'; sc.style.strokeDashoffset = f4(1 - cov);
+  const pc = $('#pencil'); if (PENCIL) { pc.style.display = 'block'; pc.style.transform = `translate(${f2(PENCIL.x - 10)}px,${f2(PENCIL.y - 110)}px) rotate(${f2(Math.sin(t * 20) * 3)}deg)`; } else pc.style.display = 'none';
+}
+function cues() {
+  const c = [{ beat: 0.3, type: 'swoosh', gain: -24 }];
+  S.forEach(s => { if (s.in !== 'none' && s.start > 0) c.push({ beat: s.start, type: s.in === 'iris' || s.in === 'page' ? 'swoosh-deep' : 'swoosh', gain: -21 }); });
+  c.push({ beat: 10.7, type: 'hit', gain: -16 }, { beat: 22.6, type: 'click', gain: -16 }, { beat: 37.2, type: 'pop', gain: -18 }, { beat: 78.9, type: 'swoosh-deep', gain: -17 }, { beat: 80, type: 'boom', gain: -13 }, { beat: 83.2, type: 'coin', gain: -18 }, { beat: 98.2, type: 'pop', gain: -20 }, { beat: 111.7, type: 'hit', gain: -15 });
+  [0, 1, 2].forEach(i => c.push({ beat: 32.6 + i * .45, type: 'pop', gain: -23 }));
+  [0, 1, 2].forEach(i => c.push({ beat: 101.2 + i * 1.5, type: 'tick', gain: -21 }));
+  return c;
+}
+VP.boot({ seek: frame, dur: DUR, cues, fonts: ['40px "Patrick Hand"', '700 40px "Be Vietnam Pro"', '600 40px "Klee One"'] });
+window.SIZE = [W, H]; window.B = B;
+</script></body></html>

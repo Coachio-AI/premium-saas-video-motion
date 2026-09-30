@@ -6,5 +6,12 @@ templates/*/assets/*.jpg
 templates/*/assets/*.png
 !templates/*/assets/placeholder-*
 *.wav
+!assets/audio/sfx/*.wav
 sfx.json
+!assets/audio/sfx.json
 examples/*.mp4
+
+# local junk
+_to_delete/
+.DS_Store
+examples/*/out/

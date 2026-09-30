@@ -4,7 +4,7 @@
   node tools/cues.mjs templates/kinetic-promo/index.html > out/cues.json
   python3 tools/mix.py out/cues.json --music edit.wav --sfx sfx.json --out out/mix.wav [--lufs -14]
 
-sfx.json maps cue type → file, e.g. {"swoosh": ".../woosh_1.wav", "hit": ".../hit.wav", "tick": ".../click.wav"}.
+sfx.json maps cue type → file (relative to the json), default = assets/audio/sfx.json (embedded library), e.g. {"swoosh": ".../woosh_1.wav", "hit": ".../hit.wav", "tick": ".../click.wav"}.
 A cue is {beat, type, gain(dB, peak), align: "onset"|"peak"}. Whooshes default to align on their PEAK
 (the loudest moment lands on the cut); clicks/hits align on their onset.
 
@@ -14,10 +14,10 @@ fewer cues is better — if a sound doesn't help the viewer understand the produ
 import json, argparse, subprocess, tempfile, os
 import numpy as np, librosa, soundfile as sf
 
-ap = argparse.ArgumentParser(); ap.add_argument('cues'); ap.add_argument('--music'); ap.add_argument('--sfx', required=True)
-ap.add_argument('--out', default='out/mix.wav'); ap.add_argument('--lufs', type=float, default=-14); ap.add_argument('--music-gain', type=float, default=-3)
+ap = argparse.ArgumentParser(); ap.add_argument('cues'); ap.add_argument('--music'); ap.add_argument('--sfx', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'audio', 'sfx.json'))
+ap.add_argument('--out', default='out/mix.wav'); ap.add_argument('--lufs', type=float, default=-14); ap.add_argument('--music-gain', type=float, default=-3); ap.add_argument('--fade', type=float, default=0.05, help='fade-out seconds at the end (use ~1.5 for a logo ending, 0.05 for loops)')
 a = ap.parse_args()
-C = json.load(open(a.cues)); B = C['B']; dur = C['DUR']; cues = C['cues']; M = json.load(open(a.sfx)); sr = 48000
+C = json.load(open(a.cues)); B = C['B']; dur = C['DUR']; cues = C['cues']; M = json.load(open(a.sfx)); M = {k: (v if os.path.isabs(v) else os.path.join(os.path.dirname(os.path.abspath(a.sfx)), v)) for k, v in M.items() if isinstance(v, str)}; sr = 48000
 L = int(dur * sr)
 if a.music:
     mus, _ = librosa.load(a.music, sr=sr, mono=False); mus = np.atleast_2d(mus)
@@ -39,5 +39,5 @@ for c in cues:
 mix = mus * 10 ** (a.music_gain / 20) + out
 tmp = tempfile.mktemp(suffix='.wav'); sf.write(tmp, mix.T, sr)
 os.makedirs(os.path.dirname(a.out) or '.', exist_ok=True)
-subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', tmp, '-af', f'loudnorm=I={a.lufs}:TP=-1.5:LRA=11,afade=t=out:st={max(0, dur - .05)}:d=0.05', '-ar', str(sr), a.out], check=True)
+subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', tmp, '-af', f'loudnorm=I={a.lufs}:TP=-1.5:LRA=11,afade=t=out:st={max(0, dur - a.fade):.3f}:d={a.fade:.3f}', '-ar', str(sr), a.out], check=True)
 os.remove(tmp); print(f'✓ {a.out}  ({len(cues)} cues, {dur:.2f} s, target {a.lufs} LUFS)')

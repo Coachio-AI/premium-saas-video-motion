@@ -1,0 +1,371 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>GlobalSpeak — 60s product film</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&display=block" rel="stylesheet">
+<script src="../../engine/motion.js"></script>
+<style>
+:root{--navy:#1A2540;--navy2:#243155;--blue:#1E4DD8;--blue2:#3B6BEE;--red:#D32F2F;--cream:#FBF8F0;--cream2:#FAF6EC;--gold:#DECB95;--border:#ECE5D5;--muted:#5F6675;--green:#1F9D55}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--cream)}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;font-family:Geist,system-ui,sans-serif;color:var(--navy);-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+.scene{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;display:none}
+.cam{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.a{position:absolute}
+.card{position:absolute;background:#fff;border-radius:24px;box-shadow:0 30px 80px rgba(26,37,64,.12),0 0 0 1px rgba(26,37,64,.05);overflow:hidden}
+.roll{position:absolute;overflow:hidden}
+.roll>div{white-space:nowrap}
+.disp{font-weight:700;letter-spacing:-.035em;line-height:1.04}
+.mask{display:inline-block;overflow:hidden;vertical-align:bottom;padding-bottom:.08em}
+.mask>span{display:inline-block}
+.chip{position:absolute;border:1.5px solid var(--border);border-radius:16px;background:#fff;display:flex;align-items:center;gap:14px;padding:0 18px;font-size:20px;font-weight:600}
+.chip i{width:38px;height:38px;border-radius:11px;display:block;flex:none}
+.chip small{margin-left:auto;font-size:14px;color:var(--muted);font-weight:500}
+.cell{position:absolute;border-radius:10px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.pill{position:absolute;display:flex;align-items:center;justify-content:center;gap:12px;border-radius:999px;font-weight:600;white-space:nowrap}
+.win-bar{position:absolute;left:0;top:0;right:0;height:44px;background:#F3F1EC;border-bottom:1px solid #E4DFD3}
+.dot{position:absolute;top:16px;width:12px;height:12px;border-radius:50%}
+#cursor{position:absolute;left:0;top:0;width:46px;height:46px;z-index:1000;filter:drop-shadow(0 3px 5px rgba(0,0,0,.3));transform-origin:9px 5px}
+</style></head><body>
+<div id="stage"></div>
+<svg id="cursor" viewBox="0 0 26 26"><path d="M5 2.5v18.2l4.6-4.4 3 6.8 3.2-1.4-3-6.7h6.4z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+<script>
+/* ============ GlobalSpeak — 60 s product film. Brand tokens read from app/globals.css ============ */
+const BPM = 113.336, B = VP.clock(BPM), W = 1920, H = 1080;
+const { sp, track, ramp, clamp, lerp, ease, eOut, SPR, place, roll, scaleRect } = VP;
+const $ = s => document.querySelector(s), stage = $('#stage');
+const IMG = { home: 'assets/home.png', bookings: 'assets/bookings.png', admin: 'assets/admin-dashboard.png' };
+const LOGO = (id) => `<svg id="${id}" viewBox="0 0 200 200" width="200" height="200" style="position:absolute;overflow:visible">
+ <defs><path id="${id}t" d="M 30,100 A 70,70 0 0 1 170,100" fill="none"/><path id="${id}b" d="M 30,100 A 70,70 0 0 0 170,100" fill="none"/></defs>
+ <circle class="ring1" cx="100" cy="100" r="96" fill="#fff" stroke="#1A2540" stroke-width="3" pathLength="1" stroke-dasharray="1" />
+ <circle class="ring2" cx="100" cy="100" r="88" fill="none" stroke="#1A2540" stroke-width="1.5" pathLength="1" stroke-dasharray="1"/>
+ <circle class="rd" cx="14" cy="100" r="3" fill="#D32F2F"/><circle class="rd" cx="186" cy="100" r="3" fill="#D32F2F"/>
+ <g class="arc"><text fill="#1A2540" font-family="Geist" font-weight="700" font-size="14" letter-spacing="2"><textPath href="#${id}t" startOffset="50%" text-anchor="middle">GLOBALSPEAK</textPath></text>
+ <text fill="#1A2540" font-family="Geist" font-weight="700" font-size="11" letter-spacing="3"><textPath href="#${id}b" startOffset="50%" text-anchor="middle">ACADEMY</textPath></text></g>
+ <g transform="translate(100,92)"><g class="globe"><circle r="30" fill="#1E4DD8"/><g class="grid" fill="none" stroke="#fff" stroke-width="1.3"><ellipse rx="30" ry="12" pathLength="1" stroke-dasharray="1"/><ellipse rx="15" ry="30" pathLength="1" stroke-dasharray="1"/><line x1="-30" x2="30" pathLength="1" stroke-dasharray="1"/><line y1="-30" y2="30" pathLength="1" stroke-dasharray="1"/></g></g></g>
+ <g transform="translate(100,130)"><g class="bookL"><path d="M -28,-2 L 0,2 L 0,18 L -28,12 Z" fill="#1A2540"/></g><g class="bookR"><path d="M 28,-2 L 0,2 L 0,18 L 28,12 Z" fill="#D32F2F"/></g></g></svg>`;
+const words = (t, cls = '') => t.split(' ').map(w => `<span class="mask"><span class="${cls}">${w}</span></span>`).join(' ');
+const R = (x, y, w, h, r) => [x, y, w, h, r];
+function el(parent, html) { parent.insertAdjacentHTML('beforeend', html); return parent.lastElementChild; }
+function rollBox(parent, x, y, w, h, text, style = '') { return el(parent, `<div class="roll" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${style}"><div style="height:${h}px;line-height:${h}px">${text}</div></div>`); }
+const rollK = (e, bin, bout) => { if (!e) return; const k = sp(bin, ...SPR.SNAP) + (bout ? sp(bout, ...SPR.SNAP) : 0); roll(e.firstElementChild, k, e.offsetHeight); };
+const popK = (e, b0, preset = SPR.POP, origin = '50% 50%') => { const k = sp(b0, ...preset); e.style.transformOrigin = origin; e.style.transform = `scale(${Math.max(0, k)})`; e.style.visibility = k > .002 ? 'visible' : 'hidden'; return k; };
+const count = (e, b0, b1, to, fmt = v => Math.round(v)) => { e.textContent = fmt(to * VP.eOutQuint(ramp(b0, b1, x => x))); };
+
+/* ============ scenes ============ */
+const S = [];
+function scene(id, start, end, bg, inT, build, anim) { const root = el(stage, `<div class="scene" id="${id}" style="background:${bg};z-index:${S.length + 1}"><div class="cam"></div><div class="hud" style="position:absolute;inset:0;pointer-events:none"></div></div>`); const s = { id, start, end, bg, in: inT, root, cam: root.firstElementChild, hud: root.lastElementChild, anim }; build(s.cam, s); S.push(s); return s; }
+
+/* 1 · OPEN — logo draws itself, tagline, globe zoom-through (0–10) */
+scene('open', 0, 10.2, 'var(--cream)', 'none', (c, s) => {
+  s.logo = el(c, `<div class="a" style="left:0;top:0;width:200px;height:200px">${LOGO('lg1')}</div>`);
+  s.wm = rollBox(c, 0, 0, 1000, 150, `<span class="disp" style="font-size:130px">GlobalSpeak</span>`);
+  s.tag = el(c, `<div class="a" style="left:0;right:0;top:700px;text-align:center;font-size:44px;font-weight:500;color:var(--muted)">${words('Book language classes with expert teachers.')}</div>`);
+}, (s, b) => {
+  const lg = s.logo, svg = lg.firstElementChild;
+  // draw
+  svg.querySelector('.ring1').style.strokeDashoffset = 1 - VP.eOut(ramp(.3, 2.2, x => x));
+  svg.querySelector('.ring2').style.strokeDashoffset = 1 - VP.eOut(ramp(.8, 2.6, x => x));
+  svg.querySelectorAll('.grid *').forEach((g, i) => g.style.strokeDashoffset = 1 - VP.eOut(ramp(2.6 + i * .2, 3.8 + i * .2, x => x)));
+  const gk = sp(1.8, ...SPR.POP); svg.querySelector('.globe').setAttribute('transform', `scale(${gk})`);
+  svg.querySelector('.bookL').setAttribute('transform', `scale(${sp(3.2, ...SPR.POP)},1)`); svg.querySelector('.bookR').setAttribute('transform', `scale(${sp(3.45, ...SPR.POP)},1)`);
+  svg.querySelector('.arc').setAttribute('opacity', 1); svg.querySelector('.arc').style.transformOrigin = '100px 100px'; svg.querySelector('.arc').style.transform = `rotate(${-40 * (1 - sp(3.9, 1.6, .8))}deg) scale(${sp(3.9, 1.6, .8)})`;
+  svg.querySelectorAll('.rd').forEach(d => d.setAttribute('r', 3 * sp(4.3, ...SPR.POP)));
+  // layout: logo centred, then slides left to make room for the wordmark
+  const slide = sp(4.8, 1.5, .85), size = lerp(380, 280, slide);
+  const lx = lerp(W / 2 - size / 2, 470 - size / 2, slide), ly = 460 - size / 2;
+  // zoom-through: scale about the globe centre until blue covers the frame
+  const z = 1 + 60 * Math.pow(ramp(9.1, 10.1, x => x), 3);
+  const gx = lx + size * .5, gy = ly + size * .46;
+  lg.style.left = lx + 'px'; lg.style.top = ly + 'px'; lg.style.width = lg.style.height = size + 'px'; svg.setAttribute('width', size); svg.setAttribute('height', size);
+  s.cam.style.transformOrigin = `${gx}px ${gy}px`; s.cam.style.transform = `scale(${z})`;
+  s.wm.style.left = (lx + size + 40) + 'px'; s.wm.style.top = (ly + size / 2 - 75) + 'px'; rollK(s.wm, 5.1);
+  s.tag.querySelectorAll('.mask>span').forEach((w, i) => { const k = sp(6.2 + i * .28, ...SPR.POP); w.style.transform = `translateY(${(1 - k) * 105}%)`; });
+});
+
+/* 2 · HOOK — kinetic words on globe blue (10–18) */
+scene('hook', 10, 18.3, 'var(--blue)', 'none', (c, s) => {
+  s.l = ['Every class.', 'Every teacher.', 'Every student.'].map(t => rollBox(c, 0, 420, W, 170, `<span class="disp" style="font-size:150px;color:#fff">${t}</span>`, 'text-align:center'));
+  s.one = el(c, `<div class="a disp" style="left:0;right:0;top:400px;text-align:center;font-size:170px;color:#fff">${words('One place.')}<span class="rdot" style="display:inline-block;width:34px;height:34px;border-radius:50%;background:var(--red);margin-left:10px"></span></div>`);
+}, (s, b) => {
+  s.l.forEach((e, i) => rollK(e, 10.15 + i * 2, 12.15 + i * 2));
+  s.one.querySelectorAll('.mask>span').forEach((w, i) => { const k = sp(16.1 + i * .3, ...SPR.POP); w.style.transform = `translateY(${(1 - k) * 105}%)`; });
+  const rd = s.one.querySelector('.rdot'); rd.style.transform = `scale(${sp(16.9, ...SPR.POP)})`;
+});
+
+/* 3 · BROWSER — student home, cursor to "Book a class" (18–26) */
+const WIN = R(240, 150, 1440, 944, 18), BTN = [240 + 720, 194 + 293];
+scene('browser', 18, 26.6, 'var(--cream)', 'rise', (c, s) => {
+  s.win = el(c, `<div class="card" style="border-radius:18px"><div class="win-bar"><i class="dot" style="left:18px;background:#FF5F57"></i><i class="dot" style="left:38px;background:#FEBC2E"></i><i class="dot" style="left:58px;background:#28C840"></i>
+    <div style="position:absolute;left:50%;top:9px;transform:translateX(-50%);width:460px;height:26px;border-radius:8px;background:#E7E3DA;font-size:14px;color:#5F6675;display:flex;align-items:center;justify-content:center">GlobalSpeak Bookings</div></div>
+    <img src="${IMG.home}" style="position:absolute;left:0;top:44px;width:1440px;height:900px"></div>`); place(s.win, WIN);
+  s.cap = rollBox(s.hud, 240, 60, 1440, 70, `<span style="font-size:44px;font-weight:650">Students start here.</span>`);
+}, (s, b) => {
+  const k = sp(18, ...SPR.HEAVY); s.win.style.transform = `translateY(${(1 - k) * 160}px)`;
+  rollK(s.cap, 18.8, 21.5);
+  const z = track([[0, 1], [21.8, 1.5, 1.3, .9]]); VP.camera(s.cam, z, BTN[0], BTN[1]);
+});
+
+/* 4 · BOOKING — rebuilt booking flow, crisp at any zoom (26–46) */
+const CARD = R(210, 200, 1500, 830, 28), CX = CARD[0], CY = CARD[1];
+const SUBJ = [['Business English', '#1E4DD8'], ['IELTS Preparation', '#D32F2F'], ['Speaking Practice', '#DECB95'], ['Pronunciation', '#1A2540'], ['Grammar & Writing', '#1F9D55'], ['Travel English', '#7B61FF']];
+const DAYS = ['Mon 13', 'Tue 14', 'Wed 15', 'Thu 16', 'Fri 17', 'Sat 18', 'Sun 19'], TIMES = ['09:00', '09:30', '10:00', '18:00', '18:30'];
+const STATUS = ['PPABAUU', 'PBAAAUU', 'PAABAAU', 'UAAABAU', 'UABAAAU'];     // P past · B booked · A available · U unavailable
+const PICK = [[0, 2], [3, 4]];                                             // (row, col) the cursor selects
+const cellXY = (r, c) => [CX + 118 + c * 132, CY + 520 + r * 54];
+scene('book', 25.6, 46.6, 'var(--cream)', 'grow', (c, s) => {
+  s.card = el(c, `<div class="card" style="border-radius:28px"></div>`); place(s.card, CARD);
+  const k = s.card;
+  el(k, `<div class="a disp" style="left:48px;top:38px;font-size:36px">Schedule a Class</div>`);
+  s.cred = el(k, `<div class="pill" style="right:48px;top:36px;height:46px;padding:0 20px;background:var(--cream2);font-size:18px;color:var(--navy)"><b class="n">6</b>&nbsp;credits remaining</div>`);
+  s.steps = ['Select Class Type', 'Choose Teacher', 'Pick Slots'].map((t, i) => el(k, `<div class="a" style="left:${48 + i * 330}px;top:112px;display:flex;align-items:center;gap:12px;font-size:19px;font-weight:600"><b class="num" style="width:34px;height:34px;border-radius:50%;background:#E9E5DA;color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:16px">${i + 1}</b>${t}</div>`));
+  el(k, `<div class="a" style="left:48px;right:48px;top:170px;height:1px;background:var(--border)"></div>`);
+  s.chips = SUBJ.map(([n, col], i) => el(k, `<div class="chip" style="left:${48 + (i % 3) * 318}px;top:${196 + Math.floor(i / 3) * 78}px;width:302px;height:64px"><i style="background:${col}"></i>${n.replace('&', '&amp;')}<small>1 credit</small></div>`));
+  s.teacher = el(k, `<div class="chip" style="left:48px;top:372px;width:620px;height:104px;border-radius:18px;gap:18px">
+     <i style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#DECB95,#D32F2F);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:22px;font-style:normal">AR</i>
+     <div><div style="font-size:22px;font-weight:700">Alex Rivera</div><div style="font-size:15px;color:var(--muted);font-weight:500;margin-top:4px">32 · Canadian · Business English · IELTS · Speaking</div></div><small class="sel">Select</small></div>`);
+  s.dayh = DAYS.map((d, i) => el(k, `<div class="a" style="left:${118 + i * 132}px;top:486px;width:124px;text-align:center;font-size:15px;font-weight:600;color:var(--muted)">${d}</div>`));
+  s.timeh = TIMES.map((t, r) => el(k, `<div class="a" style="left:48px;top:${520 + r * 54 + 12}px;font-size:15px;font-weight:600;color:var(--muted)">${t}</div>`));
+  s.cells = []; STATUS.forEach((row, r) => [...row].forEach((st, cc) => { const lab = { P: 'Past', B: 'Booked', A: 'Available', U: '—' }[st];
+    const sty = { P: 'background:#F1EEE6;color:#A3A7B0', B: 'background:#FFF4D6;color:#8A6D1E', A: 'background:#EEF3FF;color:#1E4DD8', U: 'background:#F6F4EF;color:#C9CBD1' }[st];
+    s.cells.push({ r, c: cc, st, e: el(k, `<div class="cell" style="left:${118 + cc * 132}px;top:${520 + r * 54}px;width:124px;height:46px;${sty}">${lab}</div>`) }); }));
+  // summary
+  el(k, `<div class="a" style="left:1060px;top:196px;width:392px;height:600px;border-radius:20px;background:var(--cream2)"></div>`);
+  el(k, `<div class="a disp" style="left:1090px;top:222px;font-size:26px">Your Booking</div>`);
+  s.sum = [['Class Type', 'IELTS Preparation', 30.6], ['Teacher', 'Alex Rivera', 33.3]].map(([l, v, bk], i) => ({ bk, l: el(k, `<div class="a" style="left:1090px;top:${282 + i * 86}px;font-size:15px;color:var(--muted);font-weight:500">${l}</div>`), v: rollBox(k, 1090, 306 + i * 86, 340, 36, `<span style="font-size:22px;font-weight:650">${v}</span>`) }));
+  el(k, `<div class="a" style="left:1090px;top:454px;font-size:15px;color:var(--muted);font-weight:500">Slots</div>`);
+  s.slot = [['Wed 15 · 09:00', 36.4], ['Thu 16 · 18:00', 37.9]].map(([t, bk], i) => ({ bk, e: rollBox(k, 1090, 478 + i * 44, 340, 40, `<span style="display:inline-flex;align-items:center;gap:10px;font-size:19px;font-weight:600"><i style="width:10px;height:10px;border-radius:50%;background:var(--blue);display:inline-block"></i>${t}</span>`) }));
+  s.btn = el(k, `<div class="pill" style="left:1090px;top:690px;width:332px;height:68px;background:#D9D6CE;color:#fff;font-size:20px;overflow:hidden"><div class="l0">Confirm 2 Bookings</div></div>`);
+  s.note = rollBox(k, 1060, 770, 392, 30, `<span style="font-size:14px;color:var(--muted)">Auto-confirmed. Cancel up to 2 hours before class.</span>`, 'text-align:center');
+  s.caps = [['Pick a class.', 27, 31.2], ['Pick a teacher.', 31.2, 34.3], ['Pick a time.', 34.3, 40.4], ['Booked. Instantly.', 40.4, 99]].map(([t, a, o]) => ({ a, o, e: rollBox(s.hud, 210, 88, 1500, 84, `<span class="disp" style="font-size:64px">${t}</span>`) }));
+}, (s, b) => {
+  s.caps.forEach(q => rollK(q.e, q.a, q.o));
+  const active = b < 30.6 ? 0 : b < 33.3 ? 1 : 2;
+  s.steps.forEach((e, i) => { const n = e.querySelector('.num'), on = i <= active || b >= 40.2; n.style.background = on ? 'var(--navy)' : '#E9E5DA'; n.style.color = on ? '#fff' : 'var(--navy)'; if (b >= 30.6 && i === 0 || b >= 33.3 && i === 1 || b >= 40.2 && i === 2) n.innerHTML = '&#10003;'; else n.textContent = i + 1; });
+  s.chips.forEach((e, i) => { popK(e, 27.2 + i * .16); const sel = i === 1 && b >= 30.4; e.style.borderColor = sel ? 'var(--navy)' : 'var(--border)'; e.style.boxShadow = sel ? '0 0 0 2px var(--navy)' : 'none'; if (i === 1) e.style.transform += ` scale(${1 - .04 * Math.sin(clamp((b - 30.2) / .5) * Math.PI)})`; });
+  popK(s.teacher, 31.4, SPR.POP, '0% 50%'); const tsel = b >= 33.1; s.teacher.style.borderColor = tsel ? 'var(--navy)' : 'var(--border)'; s.teacher.style.boxShadow = tsel ? '0 0 0 2px var(--navy)' : 'none'; s.teacher.querySelector('.sel').textContent = tsel ? 'Selected' : 'Select';
+  [...s.dayh, ...s.timeh].forEach(e => { e.style.visibility = b >= 34 ? 'visible' : 'hidden'; });
+  s.cells.forEach(q => { popK(q.e, 34.1 + (q.c + q.r) * .07, SPR.SNAP); const pi = PICK.findIndex(([r, c]) => r === q.r && c === q.c); if (pi >= 0 && b >= 36.2 + pi * 1.5) { q.e.style.background = 'var(--blue)'; q.e.style.color = '#fff'; q.e.textContent = 'Selected'; } });
+  s.sum.forEach(q => rollK(q.v, q.bk)); s.slot.forEach(q => rollK(q.e, q.bk));
+  // confirm → booked
+  const ready = b >= 38, done = sp(40.2, ...SPR.SNAP);
+  s.btn.style.background = done > .02 ? `rgb(${VP.mix([26, 37, 64], [31, 157, 85], clamp(done)).join(',')})` : ready ? 'var(--navy)' : '#D9D6CE';
+  s.btn.querySelector('.l0').innerHTML = done > .5 ? '&#10003;&nbsp; 2 classes booked' : 'Confirm 2 Bookings';
+  const press = b >= 40 && b < 40.6 ? 1 - .05 * Math.sin(clamp((b - 40) / .5) * Math.PI) : 1; s.btn.style.transform = `scale(${press})`;
+  rollK(s.note, 40.8);
+  s.cred.querySelector('.n').textContent = b < 40.4 ? 6 : Math.round(lerp(6, 4, eOut((b - 40.4) / .8)));
+  // camera: follow the action
+  const z = track([[0, 1], [30, 1.08, 1.2, .9], [33.8, 1.12, 1.2, .9], [39.4, 1.16, 1.2, .9], [42.5, 1, 1.2, .9]]);
+  const f = track([[0, [960, 560]], [30, [640, 420], 1.2, .9], [33.8, [700, 720], 1.2, .9], [39.4, [1300, 820], 1.2, .9], [42.5, [960, 560], 1.2, .9]]);
+  VP.camera(s.cam, z, f[0], f[1]);
+});
+
+/* 5 · CALENDAR + MEET (46–54) */
+const CAL = R(260, 190, 1400, 820, 24), colX = c => CAL[0] + 110 + c * 180, rowY = h => CAL[1] + 120 + (h - 8) * 56;
+scene('cal', 46, 54.6, 'var(--cream)', 'rise', (c, s) => {
+  s.cap = rollBox(s.hud, 260, 86, 1400, 80, `<span class="disp" style="font-size:60px">On their calendar. With a Meet link.</span>`);
+  s.win = el(c, `<div class="card"></div>`); place(s.win, CAL); const k = s.win;
+  el(k, `<div class="a disp" style="left:40px;top:34px;font-size:32px">July 2026</div>`);
+  s.sync = el(k, `<div class="pill" style="right:40px;top:30px;height:44px;padding:0 18px;background:#E8F6EE;color:var(--green);font-size:17px">&#10003;&nbsp; Synced with Google Calendar</div>`);
+  DAYS.forEach((d, i) => el(k, `<div class="a" style="left:${110 + i * 180}px;top:92px;width:170px;text-align:center;font-size:16px;font-weight:600;color:${i === 2 || i === 3 ? 'var(--blue)' : 'var(--muted)'}">${d}</div>`));
+  for (let h = 8; h <= 19; h++) { el(k, `<div class="a" style="left:32px;top:${120 + (h - 8) * 56 - 9}px;font-size:14px;color:#9AA0AC">${String(h).padStart(2, '0')}:00</div>`); el(k, `<div class="a" style="left:100px;right:30px;top:${120 + (h - 8) * 56}px;height:1px;background:#F0ECE2"></div>`); }
+  const ev = (col, h, len, t1, t2, color) => el(c, `<div class="a" style="left:${colX(col) + 4}px;top:${rowY(h) + 3}px;width:162px;height:${len * 56 - 6}px;border-radius:12px;background:${color};color:#fff;padding:10px 12px;font-size:15px;font-weight:650;line-height:1.25;box-shadow:0 10px 24px rgba(30,77,216,.25)">${t1}<div style="font-weight:500;opacity:.85;font-size:13px;margin-top:3px">${t2}</div></div>`);
+  s.others = [ev(0, 10, 1, 'Speaking Practice', 'Sam Park', '#243155'), ev(4, 9, 1, 'Business English', 'Mia Chen', '#243155'), ev(5, 11, 1, 'Pronunciation', 'Group', '#243155')];
+  s.ev = [ev(2, 9, 1, 'IELTS Preparation', 'Alex Rivera · Meet', 'var(--blue)'), ev(3, 18, 1, 'IELTS Preparation', 'Alex Rivera · Meet', 'var(--blue)')];
+  s.meet = el(c, `<div class="card" style="left:1010px;top:380px;width:470px;height:176px;border-radius:20px;padding:24px 28px">
+     <div style="font-size:15px;color:var(--muted);font-weight:600;letter-spacing:.04em">WED 15 · 09:00 – 09:30</div><div style="font-size:26px;font-weight:700;margin-top:6px">IELTS Preparation</div>
+     <div class="pill" style="position:relative;margin-top:16px;height:48px;width:250px;background:var(--blue);color:#fff;font-size:18px"><svg width="22" height="16" viewBox="0 0 22 16"><rect x="0" y="1" width="14" height="14" rx="3" fill="#fff"/><path d="M15 6l7-4v12l-7-4z" fill="#fff"/></svg>Join with Meet</div></div>`);
+}, (s, b) => {
+  s.win.style.transform = `translateY(${(1 - sp(46, ...SPR.HEAVY)) * 140}px)`; rollK(s.cap, 46.6);
+  s.others.forEach((e, i) => popK(e, 46.8 + i * .2, SPR.SNAP));
+  s.ev.forEach((e, i) => { const k = sp(47.6 + i * 1.1, 2.2, .66); e.style.transform = `translateY(${(1 - k) * -420}px) scale(${lerp(1.3, 1, k)})`; e.style.visibility = k > .002 ? 'visible' : 'hidden'; });
+  popK(s.sync, 49.6, SPR.POP, '100% 50%'); popK(s.meet, 50.8, SPR.POP, '0% 50%');
+  const z = track([[0, 1], [50.6, 1.12, 1.2, .9]]); VP.camera(s.cam, z, 1150, 480);
+});
+
+/* 6 · SYNC — laptop ↔ phone in real time (54–66) */
+const LAP = R(150, 210, 1100, 688, 20), PH = R(1400, 170, 380, 790, 62);
+scene('sync', 54, 66.6, 'var(--cream)', 'push', (c, s) => {
+  s.cap = rollBox(s.hud, 150, 80, 1620, 90, `<span class="disp" style="font-size:66px">Real-time. On every device.</span>`);
+  s.lap = el(c, `<div class="a" style="background:#15181F;border-radius:22px;padding:14px"><div style="position:relative;width:100%;height:100%;overflow:hidden;border-radius:8px"><img src="${IMG.bookings}" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:0 0"></div></div>`); place(s.lap, LAP);
+  s.base = el(c, `<div class="a" style="left:80px;top:898px;width:1240px;height:26px;border-radius:0 0 26px 26px;background:linear-gradient(#DCD8CF,#BDB8AD)"></div>`);
+  s.ph = el(c, `<div class="a" style="background:#0E1117;padding:12px"><div class="scr" style="position:relative;width:100%;height:100%;overflow:hidden;border-radius:50px;background:var(--cream)"></div></div>`); place(s.ph, PH);
+  const scr = s.ph.querySelector('.scr');
+  el(scr, `<div class="a" style="left:50%;top:12px;transform:translateX(-50%);width:110px;height:32px;border-radius:16px;background:#000"></div>`);
+  el(scr, `<div class="a" style="left:24px;top:70px;font-size:13px;color:var(--muted);font-weight:600">TEACHER · ALEX RIVERA</div><div class="a disp" style="left:24px;top:92px;font-size:34px">My Schedule</div>`);
+  const item = (y, t1, t2, hl) => el(scr, `<div class="a" style="left:18px;right:18px;top:${y}px;height:96px;border-radius:18px;background:${hl ? 'var(--blue)' : '#fff'};color:${hl ? '#fff' : 'var(--navy)'};padding:16px 18px;box-shadow:0 6px 16px rgba(26,37,64,.08)"><div style="font-size:18px;font-weight:700">${t1}</div><div style="font-size:14px;opacity:.75;margin-top:6px">${t2}</div><div style="position:absolute;right:16px;top:16px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:${hl ? 'rgba(255,255,255,.2)' : '#E8F6EE'};color:${hl ? '#fff' : 'var(--green)'}">Confirmed</div></div>`);
+  s.items = [item(164, 'Speaking Practice', 'Mon 13 · 10:00 · Sam Park'), item(270, 'Business English', 'Fri 17 · 09:00 · Mia Chen'), item(376, 'Pronunciation', 'Sat 18 · 11:00 · Group')];
+  s.newItem = item(164, 'IELTS Preparation', 'Wed 15 · 09:00 · Mia Chen', true);
+  s.toast = el(scr, `<div class="a" style="left:12px;right:12px;top:14px;height:84px;border-radius:24px;background:rgba(20,24,34,.94);color:#fff;padding:14px 18px"><div style="font-size:12px;opacity:.6;font-weight:600">GLOBALSPEAK · now</div><div style="font-size:16px;font-weight:650;margin-top:4px">New booking · Mia Chen</div><div style="font-size:13px;opacity:.75">IELTS Preparation · Wed 15, 09:00</div></div>`);
+  s.arc = el(c, `<svg class="a" style="left:0;top:0" width="1920" height="1080"><path d="M 1180 360 Q 1320 120 1500 300" fill="none" stroke="#1E4DD8" stroke-width="4" stroke-linecap="round" pathLength="1" stroke-dasharray="1"/><circle r="10" fill="#1E4DD8"/></svg>`);
+}, (s, b) => {
+  rollK(s.cap, 54.6);
+  const pk = sp(55, ...SPR.HEAVY); s.ph.style.transform = `translateX(${(1 - pk) * 700}px) rotate(${(1 - pk) * 8}deg)`;
+  const p = VP.eOut(ramp(56.4, 57.6, x => x)), path = s.arc.querySelector('path'), dot = s.arc.querySelector('circle');
+  path.style.strokeDashoffset = 1 - p; const pt = path.getPointAtLength(path.getTotalLength() * p); dot.setAttribute('cx', pt.x); dot.setAttribute('cy', pt.y); dot.setAttribute('r', b > 56.3 && b < 58.2 ? 10 * (1 - sp(57.7, 3, .9)) : 0);
+  path.style.opacity = b < 58.6 ? 1 - ramp(57.8, 58.6, x => x) : 0;  /* the line is a motion trail, retracted with a ramp */
+  const tk = sp(57.8, ...SPR.POP) - sp(60.6, ...SPR.SNAP); s.toast.style.transform = `translateY(${(1 - tk) * -130}px)`;
+  const nk = sp(58.4, ...SPR.POP); s.items.forEach(e => e.style.transform = `translateY(${nk * 106}px)`); s.newItem.style.transform = `translateX(${(1 - nk) * -380}px)`;
+  const z = track([[0, 1], [58, 1.1, 1.2, .9], [62, 1, 1.2, .9]]); VP.camera(s.cam, z, 1590, 520);
+});
+
+/* 7 · CLASSROOM — join + check in (66–76) */
+const CR = R(460, 220, 1000, 700, 32);
+scene('class', 66, 76.6, 'var(--navy)', 'rise', (c, s) => {
+  s.caps = [['Join in one tap.', 66.6, 72.2], ['Attendance, automatic.', 72.2, 99]].map(([t, a, o]) => ({ a, o, e: rollBox(c, 0, 96, W, 90, `<span class="disp" style="font-size:66px;color:#fff">${t}</span>`, 'text-align:center') }));
+  s.card = el(c, `<div class="card" style="border-radius:32px;padding:48px 56px">
+    <div style="font-size:16px;color:var(--muted);font-weight:600;letter-spacing:.04em">WED 15 · 09:00 · WITH ALEX RIVERA</div>
+    <div class="disp" style="font-size:52px;margin-top:10px">IELTS Preparation</div></div>`); place(s.card, CR);
+  const k = s.card;
+  s.status = el(k, `<div class="a" style="left:56px;top:200px;display:flex;align-items:center;gap:12px;font-size:22px;font-weight:600"><i class="led" style="width:14px;height:14px;border-radius:50%;background:#C9CBD1;display:block"></i><span class="st">Opens in 00:02:00</span></div>`);
+  s.join = el(k, `<div class="pill" style="left:56px;top:262px;width:888px;height:84px;background:#C9CBD1;color:#fff;font-size:24px;overflow:hidden"><span>Join class now</span><i class="rip" style="position:absolute;border-radius:50%;background:rgba(255,255,255,.35);width:40px;height:40px"></i></div>`);
+  el(k, `<div class="a" style="left:56px;top:390px;font-size:15px;color:var(--muted);font-weight:700;letter-spacing:.06em">ATTENDANCE</div>`);
+  s.chk = el(k, `<div class="pill" style="left:56px;top:424px;width:888px;height:78px;border:2px solid var(--green);color:var(--green);font-size:22px;overflow:hidden;background:#fff"><span class="t">I'M PRESENT — CHECK IN</span></div>`);
+  s.row = el(k, `<div class="a" style="left:56px;top:534px;width:888px;display:flex;justify-content:space-between;font-size:19px;font-weight:600"><span>Mia Chen <span style="color:var(--muted);font-weight:500">(you)</span></span><span class="r1" style="color:#B7791F">Waiting…</span></div>`);
+  s.row2 = el(k, `<div class="a" style="left:56px;top:580px;width:888px;display:flex;justify-content:space-between;font-size:19px;font-weight:600"><span>Alex Rivera <span style="color:var(--muted);font-weight:500">(teacher)</span></span><span style="color:var(--green)">Checked in · 08:57</span></div>`);
+}, (s, b) => {
+  s.caps.forEach(q => rollK(q.e, q.a, q.o));
+  const k = sp(66, ...SPR.HEAVY); s.card.style.transform = `translateY(${(1 - k) * 200}px) scale(${lerp(.94, 1, k)})`;
+  const left = Math.max(0, Math.round(120 * (1 - ramp(67, 69, x => x)))), live = left === 0;
+  s.status.querySelector('.st').textContent = live ? 'Class is live' : `Opens in 00:0${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  s.status.querySelector('.led').style.background = live ? 'var(--green)' : '#C9CBD1'; s.status.querySelector('.led').style.boxShadow = live ? `0 0 0 ${6 + 4 * Math.sin(b * 3)}px rgba(31,157,85,.18)` : 'none';
+  s.join.style.background = live ? 'var(--blue)' : '#C9CBD1';
+  const rp = ramp(70.2, 71.4, x => x), rip = s.join.querySelector('.rip'); const R0 = 900 * eOut(rp); rip.style.left = (444 - R0 / 2) + 'px'; rip.style.top = (42 - R0 / 2) + 'px'; rip.style.width = rip.style.height = R0 + 'px'; rip.style.opacity = b > 70.2 && b < 71.4 ? .35 * (1 - rp) : 0;
+  const ck = sp(72.6, ...SPR.SNAP); s.chk.style.background = `rgb(${VP.mix([255, 255, 255], [31, 157, 85], clamp(ck)).join(',')})`; s.chk.style.color = ck > .5 ? '#fff' : 'var(--green)';
+  s.chk.querySelector('.t').innerHTML = ck > .5 ? '&#10003;&nbsp; CHECKED IN · 08:58' : "I'M PRESENT — CHECK IN";
+  const r1 = s.row.querySelector('.r1'); r1.textContent = ck > .5 ? 'Checked in · 08:58' : 'Waiting…'; r1.style.color = ck > .5 ? 'var(--green)' : '#B7791F';
+  [s.row, s.row2].forEach((e, i) => popK(e, 67 + i * .3, SPR.SNAP, '0% 50%'));
+});
+
+/* 8 · TEACHER — availability sweep + fair rules (76–86) */
+const AV = R(160, 200, 1600, 780, 28), AVC = 7, AVR = 8;
+const AVPAT = ['XXXXX..', 'XXXXX..', 'XXXX...', '.XXXX..', '.......', 'XXXXX..', 'XXXXXX.', '.XXXXX.'];
+scene('teacher', 76, 86.6, 'var(--cream)', 'push', (c, s) => {
+  s.caps = [['Teachers set their week in seconds.', 76.6, 81.6], ['Fair cancel rules, built in.', 81.6, 99]].map(([t, a, o]) => ({ a, o, e: rollBox(s.hud, 160, 84, 1600, 90, `<span class="disp" style="font-size:62px">${t}</span>`) }));
+  s.card = el(c, `<div class="card" style="border-radius:28px"></div>`); place(s.card, AV); const k = s.card;
+  el(k, `<div class="a disp" style="left:48px;top:40px;font-size:34px">My Availability</div>`);
+  s.cnt = el(k, `<div class="pill" style="left:340px;top:38px;height:44px;padding:0 18px;background:#EEF3FF;color:var(--blue);font-size:18px"><b class="n">0</b>&nbsp;slots / week</div>`);
+  const T = ['08:00', '08:30', '09:00', '09:30', '10:00', '18:00', '18:30', '19:00'];
+  DAYS.forEach((d, i) => el(k, `<div class="a" style="left:${150 + i * 190}px;top:118px;width:178px;text-align:center;font-size:16px;font-weight:600;color:var(--muted)">${d.split(' ')[0]}</div>`));
+  s.cells = []; T.forEach((t, r) => { el(k, `<div class="a" style="left:48px;top:${160 + r * 72 + 16}px;font-size:15px;font-weight:600;color:var(--muted)">${t}</div>`);
+    for (let cc = 0; cc < AVC; cc++) s.cells.push({ r, c: cc, on: AVPAT[r][cc] === 'X', e: el(k, `<div class="cell" style="left:${150 + cc * 190}px;top:${160 + r * 72}px;width:178px;height:60px;background:#F6F4EF;color:#fff;font-size:20px"></div>`) }); });
+  s.rules = [['2h', 'Students can cancel up to 2 hours before class.'], ['5h', 'Teachers can reschedule up to 5 hours before.'], ['!', 'No-shows are flagged to admins automatically.']].map(([n, t], i) =>
+    el(c, `<div class="card" style="left:1020px;top:${300 + i * 176}px;width:740px;height:150px;border-radius:24px;display:flex;align-items:center;gap:26px;padding:0 34px"><div style="flex:none;width:86px;height:86px;border-radius:50%;background:${i === 2 ? 'var(--red)' : 'var(--navy)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700">${n}</div><div style="font-size:26px;font-weight:600;line-height:1.3">${t}</div></div>`));
+}, (s, b) => {
+  s.caps.forEach(q => rollK(q.e, q.a, q.o));
+  let n = 0; s.cells.forEach(q => { const k = q.on ? sp(77.2 + (q.c + q.r) * .09, ...SPR.POP) : 0; if (q.on && k > .5) n++;
+    q.e.style.background = q.on && k > .02 ? `rgb(${VP.mix([246, 244, 239], [26, 37, 64], clamp(k)).join(',')})` : '#F6F4EF'; q.e.style.transform = `scale(${q.on ? lerp(.85, 1, clamp(k)) + (k > 1 ? (k - 1) * .5 : 0) : 1})`; q.e.innerHTML = q.on && k > .6 ? '&#10003;' : ''; });
+  s.cnt.querySelector('.n').textContent = n;
+  const m = sp(81.6, 1.5, .85); s.card.style.transformOrigin = '0 0'; s.card.style.transform = `translate(${-40 * m}px,${110 * m}px) scale(${lerp(1, .54, m)})`;
+  s.rules.forEach((e, i) => { const k = sp(82 + i * .45, ...SPR.POP); e.style.transform = `translateX(${(1 - k) * 900}px)`; });
+});
+
+/* 9 · ADMIN — pulse + plans + alerts (86–98) */
+scene('admin', 86, 98.6, 'var(--cream)', 'zoom', (c, s) => {
+  s.t1 = rollBox(s.hud, 150, 100, 1620, 90, `<span class="disp" style="font-size:66px">Run the whole school.</span>`);
+  s.t2 = rollBox(s.hud, 150, 100, 1620, 90, `<span class="disp" style="font-size:66px">Plans, credits, invoices, alerts.</span>`);
+  const st = [['TODAY\'S CLASSES', 12, 'var(--navy)', '#fff'], ['ACTIVE ALERTS', 2, 'linear-gradient(135deg,#FAF6EC,#EAD9A8)', 'var(--navy)'], ['STUDENTS', 248, 'var(--blue)', '#fff'], ['TEACHERS', 18, 'linear-gradient(135deg,#FAF6EC,#DECB95)', 'var(--navy)']];
+  s.stats = st.map(([l, v, bg, fg], i) => el(c, `<div class="a" style="left:${150 + i * 412}px;top:250px;width:384px;height:220px;border-radius:26px;background:${bg};color:${fg};padding:30px 32px;box-shadow:0 20px 50px rgba(26,37,64,.12)"><div style="font-size:15px;font-weight:700;letter-spacing:.06em;opacity:.8">${l}</div><div class="n disp" data-v="${v}" style="font-size:96px;margin-top:22px">0</div></div>`));
+  const plans = [['Credit · 16 sessions', '16 credits · cancel 2h ahead', 'credit'], ['Unlimited · 6 months', '4 bookings at a time', 'unlimited'], ['Credit · 8 sessions', 'Starter pack', 'credit']];
+  s.plans = plans.map(([t, d, tag], i) => el(c, `<div class="card" style="left:${150 + i * 420}px;top:520px;width:392px;height:250px;border-radius:24px;padding:30px 30px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="width:52px;height:52px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:700">${i + 1}</div><div style="font-size:14px;font-weight:700;padding:6px 12px;border-radius:99px;background:${tag === 'unlimited' ? '#EEF3FF' : '#FFF4D6'};color:${tag === 'unlimited' ? 'var(--blue)' : '#8A6D1E'}">${tag}</div></div><div style="font-size:28px;font-weight:700;margin-top:26px">${t}</div><div style="font-size:18px;color:var(--muted);margin-top:8px">${d}</div></div>`));
+  s.alert = el(c, `<div class="card" style="left:1420px;top:520px;width:380px;height:250px;border-radius:24px;padding:28px 30px"><div style="display:flex;gap:10px;align-items:center"><span style="font-size:13px;font-weight:700;padding:5px 10px;border-radius:99px;background:#FDECEC;color:var(--red)">Urgent</span><span style="font-size:15px;color:var(--muted);font-weight:600">Late cancel request</span></div><div style="font-size:22px;font-weight:700;margin-top:16px;line-height:1.3">Mia Chen · Wed 09:00 · less than 2h notice</div><div class="pill res" style="position:absolute;left:30px;bottom:28px;width:320px;height:54px;background:var(--red);color:#fff;font-size:18px"><span>Approve refund</span></div></div>`);
+}, (s, b) => {
+  rollK(s.t1, 86.6, 91.6); rollK(s.t2, 91.6);
+  s.stats.forEach((e, i) => { popK(e, 86.8 + i * .22); count(e.querySelector('.n'), 87.2 + i * .22, 89.4 + i * .22, +e.querySelector('.n').dataset.v); });
+  s.plans.forEach((e, i) => popK(e, 91.8 + i * .25));
+  const ak = sp(93.2, ...SPR.POP); s.alert.style.transform = `translateX(${(1 - ak) * 600}px)`;
+  const done = sp(95.4, ...SPR.SNAP), res = s.alert.querySelector('.res'); res.style.background = `rgb(${VP.mix([211, 47, 47], [31, 157, 85], clamp(done)).join(',')})`; res.firstElementChild.innerHTML = done > .5 ? '&#10003;&nbsp; Resolved' : 'Approve refund';
+  const z = track([[0, 1], [93.6, 1.12, 1.2, .9]]); VP.camera(s.cam, z, 1500, 640);
+});
+
+/* 10 · MESSAGES — on mobile (98–106) */
+const PH2 = R(1080, 110, 400, 860, 64);
+scene('msg', 98, 106.6, 'var(--blue)', 'rise', (c, s) => {
+  s.cap = el(c, `<div class="a disp" style="left:180px;top:390px;width:760px;font-size:84px;color:#fff">${words('Talk to your teacher, right here.')}</div>`);
+  s.ph = el(c, `<div class="a" style="background:#0E1117;padding:12px"><div class="scr" style="position:relative;width:100%;height:100%;overflow:hidden;border-radius:52px;background:#fff"></div></div>`); place(s.ph, PH2);
+  const scr = s.ph.querySelector('.scr');
+  el(scr, `<div class="a" style="left:50%;top:12px;transform:translateX(-50%);width:110px;height:32px;border-radius:16px;background:#000"></div>
+   <div class="a" style="left:0;right:0;top:56px;height:84px;border-bottom:1px solid #EFEBE2;display:flex;align-items:center;gap:14px;padding:0 22px"><i style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#DECB95,#D32F2F);display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;font-weight:700">AR</i><div><div style="font-size:19px;font-weight:700">Alex Rivera</div><div style="font-size:13px;color:var(--green);font-weight:600">Teacher · online</div></div></div>`);
+  const bub = (y, me, t) => el(scr, `<div class="a" style="${me ? 'right:18px;background:var(--blue);color:#fff;border-radius:22px 22px 6px 22px' : 'left:18px;background:#F2EFE8;border-radius:22px 22px 22px 6px'};top:${y}px;max-width:290px;padding:14px 18px;font-size:18px;line-height:1.35;font-weight:500">${t}</div>`);
+  s.b = [bub(168, 0, 'Great class today, Mia!'), bub(236, 0, 'Try one IELTS essay before Wednesday.'), bub(338, 1, 'On it. Thank you!'), bub(410, 0, 'Sent you two sample answers.')];
+  s.react = el(scr, `<div class="a" style="left:200px;top:288px;height:32px;padding:0 10px;border-radius:99px;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.12);display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--red)"><svg width="16" height="14" viewBox="0 0 16 14"><path d="M8 13.5S1 9.2 1 4.6A3.6 3.6 0 0 1 8 3a3.6 3.6 0 0 1 7 1.6C15 9.2 8 13.5 8 13.5z" fill="#D32F2F"/></svg>1</div>`);
+  s.typing = el(scr, `<div class="a" style="left:18px;top:490px;width:78px;height:44px;border-radius:22px;background:#F2EFE8;display:flex;align-items:center;justify-content:center;gap:6px"><i></i><i></i><i></i></div>`);
+  s.typing.querySelectorAll('i').forEach(i => i.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#9AA0AC;display:block');
+  el(scr, `<div class="a" style="left:14px;right:14px;bottom:26px;height:58px;border-radius:29px;background:#F2EFE8;display:flex;align-items:center;padding:0 22px;font-size:17px;color:#9AA0AC">Message Alex…</div>`);
+}, (s, b) => {
+  s.cap.querySelectorAll('.mask>span').forEach((w, i) => { const k = sp(98.6 + i * .25, ...SPR.POP); w.style.transform = `translateY(${(1 - k) * 105}%)`; });
+  const pk = sp(98, ...SPR.HEAVY); s.ph.style.transform = `translateY(${(1 - pk) * 500}px)`;
+  s.b.forEach((e, i) => popK(e, [99.2, 100.2, 101.6, 103.8][i], SPR.POP, i === 2 ? '100% 100%' : '0% 100%'));
+  popK(s.react, 102.6); const ty = b >= 102.9 && b < 103.8; s.typing.style.display = ty ? 'flex' : 'none';
+  s.typing.querySelectorAll('i').forEach((d, i) => d.style.transform = `translateY(${-5 * Math.max(0, Math.sin(b * 8 - i * .9))}px)`);
+});
+
+/* 11 · CLOSE — roles → logo → CTA (106–116) */
+scene('close', 106, 118, 'var(--cream)', 'iris', (c, s) => {
+  s.roles = el(c, `<div class="a disp" style="left:0;right:0;top:430px;text-align:center;font-size:92px;white-space:nowrap">${words('Owner · Admin · Teacher · Student')}</div>`);
+  s.sub = rollBox(c, 0, 580, W, 70, `<span style="font-size:40px;font-weight:500;color:var(--muted)">One platform for everyone in your school.</span>`, 'text-align:center');
+  s.logo = el(c, `<div class="a" style="left:${W / 2 - 330}px;top:300px;width:240px;height:240px">${LOGO('lg2')}</div>`);
+  s.wm = rollBox(c, W / 2 - 60, 330, 900, 110, `<span class="disp" style="font-size:92px">GlobalSpeak</span>`);
+  s.wm2 = rollBox(c, W / 2 - 58, 440, 900, 60, `<span style="font-size:40px;font-weight:500;color:var(--muted)">Academy</span>`);
+  s.cta = el(c, `<div class="pill" style="left:${W / 2 - 230}px;top:680px;width:460px;height:84px;background:var(--navy);color:#fff;font-size:28px">Book your first class &nbsp;&rarr;</div>`);
+}, (s, b) => {
+  const out = sp(109.4, ...SPR.SNAP);
+  s.roles.querySelectorAll('.mask>span').forEach((w, i) => { const k = sp(106.6 + i * .22, ...SPR.POP); w.style.transform = `translateY(${((1 - k) - out) * 105}%)`; });
+  rollK(s.sub, 107.8, 109.4);
+  const svg = s.logo.firstElementChild; svg.setAttribute('width', 240); svg.setAttribute('height', 240);
+  const lk = sp(109.8, 1.6, .7); svg.style.transform = `scale(${lk}) rotate(${(1 - lk) * -30}deg)`; svg.style.visibility = lk > .002 ? 'visible' : 'hidden';
+  svg.querySelectorAll('[stroke-dasharray]').forEach(p => p.style.strokeDashoffset = 0); svg.querySelector('.globe').setAttribute('transform', 'scale(1)');
+  rollK(s.wm, 110.4); rollK(s.wm2, 110.9); popK(s.cta, 111.8);
+  const z = 1 + .03 * ramp(111, 118, x => x); VP.camera(s.cam, z, 960, 500);
+});
+
+/* ============ transitions (next scene covers previous; one spring) ============ */
+const GROW = [826, 451, 267, 72, 36], f2 = v => (+v).toFixed(2), f4 = v => (+v).toFixed(4);   // never emit 1e-7 into CSS: it is silently ignored
+function trans(s, b) {
+  const k = s.in === 'none' ? 1 : sp(s.start, 1.5, .86); let tf = '', clip = '';
+  switch (s.in) {
+    case 'rise': tf = `translateY(${f2((1 - k) * H)}px)`; break;
+    case 'push': tf = `translateX(${f2((1 - k) * W)}px)`; break;
+    case 'zoom': tf = `scale(${f4(lerp(.72, 1, k))})`; clip = `inset(${f2((1 - k) * H / 2)}px ${f2((1 - k) * W / 2)}px round ${f2((1 - k) * 60)}px)`; break;
+    case 'iris': clip = `circle(${(Math.hypot(W, H) / 2 * k).toFixed(1)}px at 50% 50%)`; break;
+    case 'grow': { const r = GROW.map((v, i) => f2(lerp(v, [0, 0, W, H, 0][i], k))); clip = `inset(${r[1]}px ${W - r[0] - r[2]}px ${H - r[1] - r[3]}px ${r[0]}px round ${r[4]}px)`; break; }
+  }
+  const nx = S[S.indexOf(s) + 1]; if (nx && nx.in !== 'none' && b >= nx.start) { const kx = sp(nx.start, 1.5, .86);
+    tf += { rise: ` translateY(${f2(-kx * H * .22)}px)`, push: ` translateX(${f2(-kx * W * .3)}px)`, zoom: ` scale(${f4(lerp(1, 1.15, kx))})`, iris: ` scale(${f4(lerp(1, .95, kx))})`, grow: '' }[nx.in] || ''; }
+  s.root.style.transform = tf; s.root.style.clipPath = clip;
+}
+
+/* ============ cursor ============ */
+const CK = [[0, 2100, 1300], [19.5, 2100, 1300], [21.6, 1150, 700], [22.4, BTN[0] + 20, BTN[1] + 10], [24.4, BTN[0] + 20, BTN[1] + 10], [25.4, BTN[0] + 20, BTN[1] + 10],
+  [27, 1100, 900], [30, CX + 48 + 318 + 150, CY + 228], [30.8, CX + 48 + 318 + 150, CY + 228], [32.9, CX + 380, CY + 424], [33.6, CX + 380, CY + 424],
+  [36, cellXY(0, 2)[0] + 60, cellXY(0, 2)[1] + 24], [36.6, cellXY(0, 2)[0] + 60, cellXY(0, 2)[1] + 24], [37.6, cellXY(3, 4)[0] + 60, cellXY(3, 4)[1] + 24], [38.2, cellXY(3, 4)[0] + 60, cellXY(3, 4)[1] + 24],
+  [39.8, CX + 1256, CY + 724], [40.8, CX + 1256, CY + 724], [42.6, 2100, 1200], [69.3, 2100, 1200], [70, 960, 510], [71.6, 960, 510], [72.4, 960, 666], [73.4, 960, 666], [74.6, 2100, 1200],
+  [94.2, 2100, 1300], [95.2, 1610, 1000], [96.4, 1610, 1000], [97.6, 2100, 1300], [118, 2100, 1300]];
+const CLICKS = [24.3, 30.4, 33.1, 36.2, 37.7, 40.1, 70.2, 72.6, 95.4];
+const camOf = b => { const s = S.find(q => b >= q.start && b < q.end && q.cam.style.transform); return s; };
+function cursor(b) {
+  let i = 0; while (i < CK.length - 2 && b >= CK[i + 1][0]) i++; const a = CK[i], c = CK[i + 1], e = ease((b - a[0]) / (c[0] - a[0] || 1));
+  let x = lerp(a[1], c[1], e), y = lerp(a[2], c[2], e);
+  // map through the active scene's camera so the cursor stays glued to UI while the camera moves
+  const s = [...S].reverse().find(q => b >= q.start && b < q.end); if (s) { const m = s.cam.style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\) scale\(([\d.]+)\)/); if (m) { x = +m[1] + x * +m[3]; y = +m[2] + y * +m[3]; } }
+  let sc = 1; CLICKS.forEach(k => { if (b >= k - .1 && b < k + .35) sc = Math.min(sc, 1 - .2 * Math.sin(clamp((b - k + .1) / .45) * Math.PI)); });
+  $('#cursor').style.transform = `translate(${x}px,${y}px) scale(${sc})`;
+}
+
+/* ============ frame ============ */
+const DUR = 118 * B;
+function frame(t) {
+  const b = VP.at(t);
+  S.forEach(s => { const on = b >= s.start - .01 && b < s.end; s.root.style.display = on ? 'block' : 'none'; if (!on) return; trans(s, b); s.anim(s, b); });
+  cursor(b);
+}
+function cues() {
+  const c = [{ beat: 10, type: 'hit', gain: -16 }];
+  S.forEach(s => { if (s.in !== 'none') c.push({ beat: s.start, type: s.in === 'zoom' || s.in === 'iris' || s.in === 'grow' ? 'swoosh-deep' : 'swoosh', gain: -20 }); });
+  CLICKS.forEach(k => c.push({ beat: k, type: 'click', gain: -22 }));
+  [40.3, 72.7].forEach(k => c.push({ beat: k, type: 'coin', gain: -20 }));
+  c.push({ beat: 57.8, type: 'notify', gain: -18 }, { beat: 110.2, type: 'hit', gain: -15 });
+  return c;
+}
+VP.boot({ seek: frame, dur: DUR, cues, fonts: ['700 100px Geist', '500 40px Geist'] });
+window.SIZE = [W, H]; window.B = B;
+</script></body></html>

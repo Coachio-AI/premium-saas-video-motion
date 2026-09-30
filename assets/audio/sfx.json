@@ -1,0 +1,21 @@
+{
+ "swoosh": "sfx/chuyen_canh_transition__woosh_1.wav",
+ "swoosh-2": "sfx/chuyen_canh_transition__woosh_2.wav",
+ "swoosh-deep": "sfx/chuyen_canh_transition__deep_woosh.wav",
+ "shutter": "sfx/chuyen_canh_transition__camera_shutter.wav",
+ "click": "sfx/cong_nghe_tech__mouse_click.wav",
+ "tick": "sfx/cong_nghe_tech__toggle.wav",
+ "typing": "sfx/cong_nghe_tech__keyboard_typing.wav",
+ "notify": "sfx/cong_nghe_tech__notification.wav",
+ "glitch": "sfx/cong_nghe_tech__glitch.wav",
+ "loading": "sfx/cong_nghe_tech__digital_loading.wav",
+ "hit": "sfx/dien_anh_cinematic__hit.wav",
+ "boom": "sfx/dien_anh_cinematic__boom.wav",
+ "rise": "sfx/dien_anh_cinematic__metallic_rise.wav",
+ "downer": "sfx/dien_anh_cinematic__downer.wav",
+ "pop": "sfx/hoat_hinh_retro__pop.wav",
+ "boing": "sfx/hoat_hinh_retro__boing.wav",
+ "coin": "sfx/game__coin_collect.wav",
+ "level-up": "sfx/game__level_up.wav",
+ "unlock": "sfx/game__unlock.wav"
+}

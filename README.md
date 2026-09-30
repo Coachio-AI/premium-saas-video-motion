@@ -12,6 +12,7 @@ Bộ **skill + engine + template + renderer** để các AI agent (Claude, Codex
 | `engine/motion.js` | Thư viện chuyển động: spring dạng closed-form, track (ghép nhiều spring chồng lên nhau), masked roll, camera zoom, liquid glass, contract `seek(t)` |
 | `templates/kinetic-promo/` | Promo kiểu Apple, điều khiển bằng 1 file JSON. Có 9 loại shot: words, glow, device, image, ui, counter, grid, split, logo. Hỗ trợ khung 16:9, 1:1, 9:16 |
 | `templates/keynote-oneshot/` | Một cú máy liền mạch (bản Converse): wordmark → pill → iris → bento → drop zoom → liquid glass → khoá màn hình → Dynamic Island → Safari → thẻ sản phẩm → trạng thái đơn hàng → bức tường. Sửa trong khối `CONFIG` |
+| `templates/ui-loops/` | 8 hiệu ứng UI vòng lặp 8 giây (nút → player, cột → đường, zoom KPI, dock nam châm, chữ co giãn, kính lúp, luồng xung, logo hạt). Bảng 4:5 hoặc `?fx=N` cho 1 hiệu ứng khổ 1:1, `?poster` cho ảnh bìa. Cảm hứng từ bộ kit của Charlie Hills, viết lại từ đầu trên engine VP |
 | `tools/` | Các lệnh: `sheet.mjs` (contact sheet), `render.mjs` (preview/final, song song, chạy tiếp được khi đứt), `beatgrid.py` (BPM, lưới beat, drop, cắt ghép nhạc), `cues.mjs` + `mix.py` (sound design, chuẩn −14 LUFS), `popcheck.py` (bắt khung giật), `install-skill.sh` |
 
 ## Cài đặt (1 lần)
